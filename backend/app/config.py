@@ -63,7 +63,9 @@ class Settings(BaseSettings):
     gemini_api_key: Optional[str] = Field(default=None, alias="GEMINI_API_KEY")
     gemini_model: str = Field(default="gemini-2.5-flash", alias="GEMINI_MODEL")
     # Cheaper tier used by the model router for lightweight/classification tasks.
-    gemini_model_light: str = Field(default="gemini-2.5-flash-lite", alias="GEMINI_MODEL_LIGHT")
+    # Defaults to gemini-2.5-flash (universally available); set GEMINI_MODEL_LIGHT to a
+    # cheaper model like gemini-2.0-flash-lite if your key/project has quota for it.
+    gemini_model_light: str = Field(default="gemini-2.5-flash", alias="GEMINI_MODEL_LIGHT")
 
     groq_api_key: Optional[str] = Field(default=None, alias="GROQ_API_KEY")
     groq_model: str = Field(default="llama-3.3-70b-versatile", alias="GROQ_MODEL")
