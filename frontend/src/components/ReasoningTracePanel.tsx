@@ -19,6 +19,7 @@ import { cx } from "../lib/utils";
 
 const AGENT_META: Record<string, { icon: JSX.Element; blurb: string }> = {
   EvidenceAgent: { icon: <Database size={16} />, blurb: "Queries DuckDB for the case network, KYC & history" },
+  GNNAgent: { icon: <Boxes size={16} />, blurb: "Graph neural network scores accounts for laundering risk" },
   TypologyMatchAgent: { icon: <BrainCircuit size={16} />, blurb: "Scores the pattern against 28 SAML-D typologies" },
   RegulatoryContextAgent: { icon: <Boxes size={16} />, blurb: "RAG lookup over the typology knowledge base" },
   NarrativeAgent: { icon: <FileText size={16} />, blurb: "Drafts the case narrative & EDD report" },
@@ -28,6 +29,7 @@ const AGENT_META: Record<string, { icon: JSX.Element; blurb: string }> = {
 
 const PIPELINE = [
   "EvidenceAgent",
+  "GNNAgent",
   "TypologyMatchAgent",
   "RegulatoryContextAgent",
   "NarrativeAgent",

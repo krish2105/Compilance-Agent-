@@ -36,6 +36,12 @@ export default function CaseGraph({ graph }: { graph: CaseGraphType }) {
     collector: "rgb(var(--critical))",
     distributor: "rgb(var(--accent))",
   };
+  const hasGnn = graph.nodes.some((n) => n.gnn_score != null);
+  // Colour by GNN illicit probability when available (low=accent → high=critical).
+  const gnnColor = (s?: number | null) => {
+    if (s == null) return "rgb(var(--ink-faint))";
+    return `color-mix(in srgb, rgb(var(--critical)) ${Math.round(s * 100)}%, rgb(var(--accent)))`;
+  };
 
   const f = graph.features as Record<string, number | string | boolean>;
   const featChips: [string, unknown][] = [
@@ -112,11 +118,15 @@ export default function CaseGraph({ graph }: { graph: CaseGraphType }) {
                   cx={p.x}
                   cy={p.y}
                   r={radius(n)}
-                  fill={roleColor[n.role] ?? "rgb(var(--ink-faint))"}
+                  fill={hasGnn ? gnnColor(n.gnn_score) : (roleColor[n.role] ?? "rgb(var(--ink-faint))")}
                   fillOpacity={n.role === "subject" ? 1 : 0.85}
                   stroke={n.role === "subject" ? "rgb(var(--brand))" : "transparent"}
                   strokeWidth={n.role === "subject" ? 3 : 0}
-                />
+                >
+                  {n.gnn_score != null && (
+                    <title>{`${n.id} · GNN risk ${Math.round(n.gnn_score * 100)}%`}</title>
+                  )}
+                </circle>
                 <text
                   x={p.x}
                   y={p.y + radius(n) + 11}
@@ -133,9 +143,17 @@ export default function CaseGraph({ graph }: { graph: CaseGraphType }) {
       </div>
 
       <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-ink-faint">
-        <span className="flex items-center gap-1"><Dot c="brand" /> subject</span>
-        <span className="flex items-center gap-1"><Dot c="accent" /> distributor</span>
-        <span className="flex items-center gap-1"><Dot c="critical" /> collector</span>
+        {hasGnn ? (
+          <span className="flex items-center gap-1">
+            node colour = <Dot c="accent" /> low → <Dot c="critical" /> high <strong className="text-ink">GNN illicit risk</strong>
+          </span>
+        ) : (
+          <>
+            <span className="flex items-center gap-1"><Dot c="brand" /> subject</span>
+            <span className="flex items-center gap-1"><Dot c="accent" /> distributor</span>
+            <span className="flex items-center gap-1"><Dot c="critical" /> collector</span>
+          </>
+        )}
         <span className="flex items-center gap-1">
           <span className="inline-block h-0.5 w-4" style={{ background: "rgb(var(--critical))" }} /> flagged transfer
         </span>

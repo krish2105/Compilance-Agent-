@@ -141,9 +141,33 @@ export interface CaseGraph {
     out_degree: number;
     x: number;
     y: number;
+    gnn_score?: number | null;
   }[];
   edges: { source: string; target: string; amount: number; laundering: number; txid: string }[];
   features: Record<string, unknown>;
+}
+
+export interface GnnResult {
+  available: boolean;
+  case_risk?: number;
+  subject_risk?: number;
+  mean_risk?: number;
+  top_risk_accounts?: { account: string; score: number }[];
+  model?: {
+    architecture?: string;
+    test_f1?: number;
+    test_pr_auc?: number;
+    test_roc_auc?: number;
+    trained_on_accounts?: number;
+  };
+  summary?: string;
+  note?: string;
+}
+
+export interface RiskResult {
+  overall_risk: number;
+  risk_band: "Low" | "Medium" | "High" | "Critical";
+  components: { typology_confidence: number; gnn_case_risk: number | null };
 }
 
 export interface InvestigationResult {
@@ -158,6 +182,8 @@ export interface InvestigationResult {
     counterparty_kyc: Record<string, Kyc>;
     graph?: CaseGraph;
   };
+  gnn?: GnnResult;
+  risk?: RiskResult;
   typology_match: TypologyMatch;
   regulatory: {
     primary: {

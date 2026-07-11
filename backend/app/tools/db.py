@@ -50,6 +50,13 @@ def get_case(case_id: str) -> Optional[Dict[str, Any]]:
         return rows[0] if rows else None
 
 
+def get_all_transactions() -> List[Dict[str, Any]]:
+    """Every transaction (used to build the full account graph for the GNN)."""
+    with _con() as con:
+        cur = con.execute("SELECT * FROM transactions")
+        return _rows_to_dicts(cur)
+
+
 def get_case_transactions(case_id: str) -> List[Dict[str, Any]]:
     """All transactions belonging to a case's network, chronologically."""
     with _con() as con:

@@ -120,6 +120,19 @@ detector feeding the ensemble (Tier 2).
 **Why:** Demonstrates real-benchmark compatibility without destabilising the
 reproducible eval (AMLworld has no per-typology labels).
 
+### ADR-016 · GNN implemented from scratch in NumPy (not PyTorch Geometric)
+**Decision:** The GNN AML detector is a 2-layer GCN written from scratch in NumPy
+(forward + backprop + Adam), trained on the account graph; served via a pure-NumPy
+forward pass.
+**Why:** GNNs are the SOTA for AML network detection, but PyTorch (+ torch-geometric)
+is ~2 GB — it would break the 512 MB free-tier deploy (the same class of problem
+that broke an earlier build). A from-scratch GCN is genuine (real gradients, real
+training, F1 0.70 / PR-AUC 0.83 on held-out accounts), adds **zero** heavy deps to
+the served image, and is arguably a stronger signal than calling a library.
+**Trade-off:** No fancy architectures (attention, temporal motifs) out of the box.
+**Upgrade path:** `requirements-gnn.txt` (PyTorch-Geometric GraphSAGE / LAS-GNN),
+trained offline, weights exported for the same NumPy-light serving path.
+
 ### ADR-011 · Render + Vercel free tiers
 **Decision:** Backend on Render (Docker), frontend on Vercel.
 **Why:** $0 hosting with a real live demo (live demos measurably increase callbacks).

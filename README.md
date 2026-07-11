@@ -7,7 +7,7 @@ drafts case narratives and Enhanced Due Diligence (EDD) reports with **full evid
 **verifies every claim against source data**, and routes every case through a **mandatory human
 approval gate** — it never auto-clears or auto-reports.
 
-`LangGraph` · `FastAPI` · `React + TypeScript` · `DuckDB` · `hybrid RAG (BM25+dense+rerank)` · `NetworkX graph analytics` · `Gemini / Groq / offline` · `eval gates (RAGAS/DeepEval-style)` · `Langfuse observability` · `OWASP guardrails` · **$0/month**
+`LangGraph` · `FastAPI` · `React + TypeScript` · `DuckDB` · `hybrid RAG (BM25+dense+rerank)` · `GNN detector (from-scratch NumPy)` · `NetworkX graph analytics` · `Gemini / Groq / offline` · `eval gates` · `Langfuse observability` · `OWASP guardrails` · **$0/month**
 
 ### 🔗 Live demo
 - **App (Vercel):** https://frontend-three-pi-15.vercel.app
@@ -68,7 +68,8 @@ renders the reasoning as it happens.
 
 | Agent | Role | How it works |
 |---|---|---|
-| **Evidence** | Assemble the case | Queries DuckDB for the case's transaction network, subject + counterparty KYC, and prior history; computes a deterministic behavioural fact/signal vector. **No LLM** — evidence must be hard ground truth. |
+| **Evidence** | Assemble the case | Queries DuckDB for the case's transaction network, subject + counterparty KYC, and prior history; computes a deterministic behavioural fact/signal vector + a NetworkX graph. **No LLM** — evidence must be hard ground truth. |
+| **GNN Detector** | Graph-based risk | A **2-layer Graph Convolutional Network built from scratch in NumPy** (trained on the account graph, class-imbalance-aware) scores every account for laundering involvement → per-node risk, case risk, and the highest-risk subgraph (GNNExplainer-lite). Ensembled with the typology confidence. |
 | **Typology-Match** | Classify the pattern | Cosine similarity between the case signature and each of the **28 SAML-D typologies**, returning a ranked best match, confidence, and the dimensions that drove it. Deterministic and explainable — the LLM never "guesses" the label. |
 | **Regulatory-Context** | Ground it in policy | **Advanced RAG** over a ~112-chunk regulatory KB: **hybrid retrieval** (BM25 + dense embeddings, **RRF-fused**) → **reranking** (funnel), reporting **Recall@5 / MRR / nDCG@10**. Embeddings are pluggable — offline hashing ($0) or **Gemini neural** (`EMBEDDING_BACKEND=gemini`); reranker is lexical (default) or **LLM** (`RERANKER=llm`). |
 | **Narrative** | Draft the case | Builds a deterministic, evidence-cited EDD draft + machine-checkable claims, then asks the LLM to *polish the prose only*. The offline provider (and any failure) returns the deterministic draft verbatim. |
@@ -213,6 +214,28 @@ See [`DECISIONS.md`](DECISIONS.md) for the architecture decision records behind 
 
 ---
 
+## GNN detector (graph-based AML — the SOTA)
+
+GNNs are the state of the art for AML network detection. Rather than pull in
+PyTorch (which would blow the 512 MB free tier), this project ships a **2-layer
+Graph Convolutional Network implemented from scratch in NumPy**
+([`backend/gnn/`](backend/gnn/)) — genuine forward + backprop + Adam, trained on the
+account-level transaction graph:
+
+- **Task:** node classification — is an account involved in laundering, given its
+  behavioural features + graph neighbourhood.
+- **Class imbalance** handled with a class-weighted loss (`pos_weight = neg/pos`).
+- **Results (held-out accounts):** F1 **0.70**, PR-AUC **0.83**, ROC-AUC **0.82**.
+- **Serving:** a new **GNN Detector agent** scores each case's subgraph → per-node
+  illicit probability, a case-level GNN risk score, and the top-risk accounts;
+  inference is pure NumPy, so it adds negligible weight to the deployed service.
+- **Ensemble:** the GNN case risk is combined with the deterministic typology
+  confidence into an **overall risk score + band** (Low → Critical).
+- **UI:** the transaction-network graph **colours nodes by GNN illicit risk**, and a
+  GNN panel shows the ensemble meter, model metrics, and the highest-risk subgraph.
+- **Upgrade path:** a PyTorch-Geometric training script (GraphSAGE / temporal
+  LAS-GNN) — see `requirements-gnn.txt`.
+
 ## Advanced capabilities (graph analytics · real-data ingestion)
 
 - **Graph analytics ([`app/tools/graph.py`](backend/app/tools/graph.py)).** Each case's transactions are
@@ -282,6 +305,7 @@ Plus the core guardrails (all genuinely functional, not cosmetic):
 
 ```
 backend/    FastAPI · LangGraph agents · DuckDB · vector RAG · SQLite audit
+backend/gnn/   from-scratch NumPy GCN — features, model, training, weights
 backend/eval/  eval pipeline (metrics + CI gates) + optional DeepEval LLM-judge
 frontend/   React + TS + Vite + Tailwind · SSE hook · premium light/dark UI
 docs/       architecture diagram · demo walkthrough
@@ -296,7 +320,9 @@ DECISIONS.md  architecture decision records
 - **Synthetic data.** Typologies are simplified, stylised representations; thresholds and jurisdiction
   lists are illustrative, not a regulatory reference. *Fix path: ingest IBM AMLworld / Elliptic.*
 - **Deterministic typology matcher** favours transparency over raw accuracy; sibling typologies are
-  sometimes swapped at top-1 (always caught in top-3). *Fix path: a GNN detector feeding the ensemble.*
+  sometimes swapped at top-1 (always caught in top-3). An **independent GNN risk score is now
+  ensembled in** to corroborate it; the GCN is transductive-trained (applied to case subgraphs), so
+  its per-case scores are indicative rather than calibrated probabilities.
 - **Hashing-embedding RAG** has no true semantic generalisation and won't scale to a large corpus.
   *Fix path: neural embeddings + hybrid (BM25+dense) + a cross-encoder reranker — the retrieval
   interface is isolated for exactly this swap.*

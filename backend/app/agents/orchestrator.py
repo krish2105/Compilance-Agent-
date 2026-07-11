@@ -29,6 +29,7 @@ from langgraph.graph import END, START, StateGraph
 
 from app.agents import (
     evidence_agent,
+    gnn_agent,
     narrative_agent,
     regulatory_context_agent,
     typology_match_agent,
@@ -42,6 +43,7 @@ MAX_RETRIES = 1
 class AgentState(TypedDict, total=False):
     case_id: str
     evidence: Dict[str, Any]
+    gnn: Dict[str, Any]
     typology_match: Dict[str, Any]
     regulatory: Dict[str, Any]
     narrative_result: Dict[str, Any]
@@ -96,6 +98,33 @@ def evidence_node(state: AgentState) -> AgentState:
     }
 
 
+def gnn_node(state: AgentState) -> AgentState:
+    if state.get("error"):
+        return {}
+    case_id = state["case_id"]
+    ev = state["evidence"]
+    with tracing.span("GNNAgent"):
+        gnn = gnn_agent.score_case(ev["transactions"], ev["subject_account"])
+    audit.log_event(
+        case_id, "GNNAgent", "GNN_SCORE",
+        summary=gnn.get("summary", "GNN model unavailable"),
+        detail={"available": gnn.get("available"), "case_risk": gnn.get("case_risk"),
+                "subject_risk": gnn.get("subject_risk"), "model": gnn.get("model", {})},
+    )
+    title = (f"GNN scored the transaction graph (case risk "
+             f"{gnn.get('case_risk', 0):.0%})" if gnn.get("available")
+             else "GNN model unavailable — skipped")
+    return {
+        "gnn": gnn,
+        "events": [_event("GNNAgent", 2, "done", title,
+                          {"case_risk": gnn.get("case_risk"),
+                           "subject_risk": gnn.get("subject_risk"),
+                           "top_risk_accounts": gnn.get("top_risk_accounts", []),
+                           "model": gnn.get("model", {}),
+                           "available": gnn.get("available")})],
+    }
+
+
 def typology_node(state: AgentState) -> AgentState:
     if state.get("error"):
         return {}
@@ -111,7 +140,7 @@ def typology_node(state: AgentState) -> AgentState:
     )
     return {
         "typology_match": match,
-        "events": [_event("TypologyMatchAgent", 2, "done",
+        "events": [_event("TypologyMatchAgent", 3, "done",
                           f"Matched typology: {match['best_match']['typology_label']}",
                           {"best_match": match["best_match"],
                            "ranked": match["ranked"],
@@ -135,7 +164,7 @@ def regulatory_node(state: AgentState) -> AgentState:
     )
     return {
         "regulatory": reg,
-        "events": [_event("RegulatoryContextAgent", 3, "done",
+        "events": [_event("RegulatoryContextAgent", 4, "done",
                           f"Retrieved regulatory context ({reg['primary']['label']})",
                           {"primary": reg["primary"], "retrieved": reg["retrieved"],
                            "rag_backend": reg["rag_backend"]})],
@@ -165,7 +194,7 @@ def narrative_node(state: AgentState) -> AgentState:
              else "Drafted case narrative & EDD report")
     return {
         "narrative_result": result,
-        "events": [_event("NarrativeAgent", 4, "done", title,
+        "events": [_event("NarrativeAgent", 5, "done", title,
                           {"provider": result["llm_provider"],
                            "model": result["llm_model"],
                            "fallback_used": result["llm_fallback_used"],
@@ -198,7 +227,7 @@ def verifier_node(state: AgentState) -> AgentState:
     updates: AgentState = {
         "verification": v,
         "do_retry": will_retry,
-        "events": [_event("Verifier", 5, status, title,
+        "events": [_event("Verifier", 6, status, title,
                           {"passed": v["passed"], "summary": v["summary"],
                            "issues": v["issues"],
                            "verified_claims": v["verified_claims"],
@@ -215,7 +244,7 @@ def finalize_node(state: AgentState) -> AgentState:
     if state.get("error"):
         audit.log_event(case_id, "Orchestrator", "PIPELINE_ABORTED",
                         actor_type="system", summary=state["error"])
-        return {"events": [_event("Orchestrator", 6, "error",
+        return {"events": [_event("Orchestrator", 7, "error",
                                   "Pipeline aborted", {"error": state["error"]})]}
     audit.log_event(
         case_id, "Orchestrator", "PIPELINE_COMPLETE",
@@ -223,7 +252,7 @@ def finalize_node(state: AgentState) -> AgentState:
         summary="Draft ready for human approval gate.",
         detail={"verification_passed": state["verification"]["passed"]},
     )
-    return {"events": [_event("Orchestrator", 6, "done",
+    return {"events": [_event("Orchestrator", 7, "done",
                               "Draft ready — awaiting human approval",
                               {"verification_passed": state["verification"]["passed"],
                                "awaiting_human_review": True})]}
@@ -231,7 +260,7 @@ def finalize_node(state: AgentState) -> AgentState:
 
 # --------------------------------------------------------------------- edges --
 def _after_evidence(state: AgentState) -> str:
-    return "finalize" if state.get("error") else "match_typology"
+    return "finalize" if state.get("error") else "gnn_score"
 
 
 def _after_verifier(state: AgentState) -> str:
@@ -249,6 +278,7 @@ def build_graph():
         return _compiled
     g = StateGraph(AgentState)
     g.add_node("gather_evidence", evidence_node)
+    g.add_node("gnn_score", gnn_node)
     g.add_node("match_typology", typology_node)
     g.add_node("regulatory_context", regulatory_node)
     g.add_node("draft_narrative", narrative_node)
@@ -257,7 +287,8 @@ def build_graph():
 
     g.add_edge(START, "gather_evidence")
     g.add_conditional_edges("gather_evidence", _after_evidence,
-                            {"match_typology": "match_typology", "finalize": "finalize"})
+                            {"gnn_score": "gnn_score", "finalize": "finalize"})
+    g.add_edge("gnn_score", "match_typology")
     g.add_edge("match_typology", "regulatory_context")
     g.add_edge("regulatory_context", "draft_narrative")
     g.add_edge("draft_narrative", "verify")
@@ -326,10 +357,35 @@ def run_case(case_id: str) -> Dict[str, Any]:
     return assemble_result(case_id, final)
 
 
+def _ensemble_risk(typology_match: Dict[str, Any], gnn: Dict[str, Any]) -> Dict[str, Any]:
+    """Combine the deterministic typology confidence with the GNN case risk."""
+    typ_conf = float(typology_match.get("confidence", 0.0))
+    if gnn.get("available"):
+        gnn_risk = float(gnn.get("case_risk", 0.0))
+        overall = round(0.5 * typ_conf + 0.5 * gnn_risk, 3)
+        components = {"typology_confidence": round(typ_conf, 3), "gnn_case_risk": round(gnn_risk, 3)}
+    else:
+        overall = round(typ_conf, 3)
+        components = {"typology_confidence": round(typ_conf, 3), "gnn_case_risk": None}
+    band = ("Critical" if overall >= 0.85 else "High" if overall >= 0.6
+            else "Medium" if overall >= 0.4 else "Low")
+    return {"overall_risk": overall, "risk_band": band, "components": components}
+
+
+def _graph_with_gnn(evidence: Dict[str, Any], gnn: Dict[str, Any]) -> Dict[str, Any]:
+    """Attach per-node GNN scores to the graph payload for UI risk-colouring."""
+    graph = dict(evidence.get("graph", {}))
+    if gnn.get("available") and graph.get("nodes"):
+        scores = gnn.get("node_scores", {})
+        graph["nodes"] = [{**n, "gnn_score": scores.get(n["id"])} for n in graph["nodes"]]
+    return graph
+
+
 def assemble_result(case_id: str, state: AgentState) -> Dict[str, Any]:
     """Shape the final graph state into the API/UI result payload."""
     if state.get("error"):
         return {"case_id": case_id, "error": state["error"], "status": "ERROR"}
+    gnn = state.get("gnn", {"available": False})
     return {
         "case_id": case_id,
         "status": "AWAITING_HUMAN_REVIEW",
@@ -340,8 +396,10 @@ def assemble_result(case_id: str, state: AgentState) -> Dict[str, Any]:
             "transactions": state["evidence"]["transactions"],
             "prior_history": state["evidence"]["prior_history"],
             "counterparty_kyc": state["evidence"]["counterparty_kyc"],
-            "graph": state["evidence"].get("graph", {}),
+            "graph": _graph_with_gnn(state["evidence"], gnn),
         },
+        "gnn": gnn,
+        "risk": _ensemble_risk(state["typology_match"], gnn),
         "typology_match": state["typology_match"],
         "regulatory": state["regulatory"],
         "narrative": state["narrative_result"]["narrative"],

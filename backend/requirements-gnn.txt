@@ -1,0 +1,9 @@
+# Optional GNN upgrade path — train a PyTorch-Geometric model instead of the
+# from-scratch NumPy GCN. HEAVY (torch ~2GB): do NOT install on the free tier; the
+# default NumPy GCN (gnn/) trains and serves with no extra deps.
+#   pip install -r requirements.txt -r requirements-gnn.txt
+# Then implement gnn/train_pyg.py (GraphSAGE / GIN / temporal LAS-GNN) and export
+# weights the serving path can load.
+torch==2.2.2
+torch-geometric==2.5.3
+scikit-learn==1.4.2

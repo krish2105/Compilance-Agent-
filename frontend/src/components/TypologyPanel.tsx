@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { BrainCircuit, Flag, Target } from "lucide-react";
 import type { InvestigationResult } from "../lib/types";
 import { cx } from "../lib/utils";
+import GnnPanel from "./GnnPanel";
 
 /** Shows the ranked typology match with a confidence meter + drivers + regulatory context. */
 export default function TypologyPanel({ result }: { result: InvestigationResult }) {
@@ -12,6 +13,8 @@ export default function TypologyPanel({ result }: { result: InvestigationResult 
 
   return (
     <div className="space-y-4">
+      <GnnPanel result={result} />
+
       <div className="glass p-4">
         <div className="mb-3 flex items-center gap-2">
           <Target size={16} className="text-brand" />

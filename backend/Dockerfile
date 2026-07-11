@@ -20,6 +20,10 @@ COPY . .
 # container is ready to serve immediately.
 RUN python -m app.data_pipeline
 
+# Train the GNN detector on the built graph (fast, NumPy-only) so weights match the
+# deployed data.
+RUN python -m gnn.train
+
 EXPOSE 8000
 
 # Render provides $PORT; default to 8000 locally.
