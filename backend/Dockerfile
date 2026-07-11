@@ -7,18 +7,17 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# System deps (duckdb/chromadb wheels are self-contained; build-essential kept minimal)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
+# No system build deps needed: every dependency in requirements.txt ships a
+# manylinux wheel (the native chromadb/hnswlib stack is optional and excluded
+# from the default image). Keeps the build fast and reliable on the free tier.
 
 COPY requirements.txt .
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
 COPY . .
 
-# Build the processed dataset + vector index at image build time so the container
-# is ready to serve immediately.
+# Build the processed dataset (DuckDB + reference docs) at image build time so the
+# container is ready to serve immediately.
 RUN python -m app.data_pipeline
 
 EXPOSE 8000
