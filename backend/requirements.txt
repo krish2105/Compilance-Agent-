@@ -1,0 +1,29 @@
+# ComplianceAgent backend dependencies (pinned for Python 3.9 compatibility)
+fastapi==0.115.6
+uvicorn[standard]==0.30.6
+sse-starlette==2.1.3
+python-dotenv==1.0.1
+pydantic==2.9.2
+pydantic-settings==2.5.2
+httpx==0.27.2
+
+# Data engine
+duckdb==1.1.3
+pandas==2.2.3
+numpy==1.26.4
+
+# Agent orchestration
+langgraph==0.2.45
+langchain-core==0.3.15
+
+# Vector store / RAG (used with a local, offline embedding function -> no model downloads)
+chromadb==0.5.20
+
+# LLM providers (primary + fallback). Optional at runtime: an offline provider keeps the app $0.
+google-generativeai==0.8.3
+groq==0.11.0
+
+# Testing & lint
+pytest==8.3.3
+pytest-asyncio==0.24.0
+ruff==0.7.4

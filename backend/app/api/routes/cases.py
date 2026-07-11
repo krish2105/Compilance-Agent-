@@ -1,0 +1,113 @@
+"""
+Case endpoints: listing, detail, non-streaming investigation, the audit trail,
+and the mandatory human approval gate (approve / edit / reject).
+
+The approval gate is BACKEND-ENFORCED: a case cannot reach a finalized state
+except through a persisted human decision recorded here. There is no code path
+that auto-approves, auto-clears, or auto-files a case.
+"""
+from __future__ import annotations
+
+from typing import List, Optional
+
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
+
+from app.agents import orchestrator
+from app.api import store
+from app.tools import audit, db
+
+router = APIRouter(prefix="/api/cases", tags=["cases"])
+
+
+class ReviewRequest(BaseModel):
+    decision: str = Field(..., description="APPROVED | REJECTED | EDITED | ESCALATED")
+    reviewer: str = Field(..., min_length=1, description="Analyst identifier")
+    notes: Optional[str] = Field(default=None)
+    edited_narrative: Optional[str] = Field(
+        default=None, description="Required when decision == EDITED"
+    )
+
+
+_VALID_DECISIONS = {"APPROVED", "REJECTED", "EDITED", "ESCALATED"}
+
+
+@router.get("")
+def list_cases() -> List[dict]:
+    """All investigation cases with their current review status."""
+    cases = db.list_cases()
+    for c in cases:
+        review = audit.get_latest_review(c["case_id"])
+        c["review_status"] = review["status"] if review else "PENDING_REVIEW"
+        c["reviewed_by"] = review["reviewer"] if review else None
+    return cases
+
+
+@router.get("/{case_id}")
+def get_case_detail(case_id: str) -> dict:
+    """Full case detail. Runs (or reuses a cached) investigation and attaches the
+    current human-review state. Does NOT finalize anything."""
+    case = db.get_case(case_id)
+    if case is None:
+        raise HTTPException(status_code=404, detail=f"Case '{case_id}' not found.")
+
+    result = store.get_result(case_id)
+    if result is None:
+        result = orchestrator.run_case(case_id)
+        store.put_result(case_id, result)
+
+    review = audit.get_latest_review(case_id)
+    return {
+        "case": case,
+        "result": result,
+        "review": review,
+        "review_history": audit.get_review_history(case_id),
+    }
+
+
+@router.post("/{case_id}/investigate")
+def investigate(case_id: str) -> dict:
+    """Run the multi-agent pipeline for a case (non-streaming) and cache it."""
+    if db.get_case(case_id) is None:
+        raise HTTPException(status_code=404, detail=f"Case '{case_id}' not found.")
+    result = orchestrator.run_case(case_id)
+    store.put_result(case_id, result)
+    return result
+
+
+@router.get("/{case_id}/audit")
+def get_audit(case_id: str) -> dict:
+    """The persisted audit trail: every agent step + every human action."""
+    if db.get_case(case_id) is None:
+        raise HTTPException(status_code=404, detail=f"Case '{case_id}' not found.")
+    return {
+        "case_id": case_id,
+        "events": audit.get_audit_trail(case_id),
+        "reviews": audit.get_review_history(case_id),
+    }
+
+
+@router.post("/{case_id}/review")
+def submit_review(case_id: str, req: ReviewRequest) -> dict:
+    """The enforced human approval gate. Persists an APPROVE / EDIT / REJECT /
+    ESCALATE decision to the audit log and returns the resulting case status."""
+    if db.get_case(case_id) is None:
+        raise HTTPException(status_code=404, detail=f"Case '{case_id}' not found.")
+
+    decision = req.decision.upper()
+    if decision not in _VALID_DECISIONS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"decision must be one of {sorted(_VALID_DECISIONS)}",
+        )
+    if decision == "EDITED" and not (req.edited_narrative and req.edited_narrative.strip()):
+        raise HTTPException(
+            status_code=422,
+            detail="edited_narrative is required when decision == EDITED.",
+        )
+
+    review = audit.record_review(
+        case_id, decision, req.reviewer,
+        notes=req.notes, edited_narrative=req.edited_narrative,
+    )
+    return {"ok": True, "review": review}

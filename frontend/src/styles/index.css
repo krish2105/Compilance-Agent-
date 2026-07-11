@@ -1,0 +1,138 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ------------------------------------------------------------------ themes -- */
+:root {
+  /* Light theme (default) — clean, high-contrast, professional. */
+  --surface-base: 244 246 251;    /* app background      */
+  --surface-raised: 255 255 255;  /* cards               */
+  --surface-overlay: 255 255 255; /* popovers/modals     */
+  --ink: 17 24 39;                /* primary text        */
+  --ink-muted: 71 85 105;         /* secondary text      */
+  --ink-faint: 130 143 163;       /* tertiary text       */
+  --line: 224 229 240;            /* borders             */
+  --brand: 79 70 229;             /* indigo-600          */
+  --brand-soft: 224 226 254;      /* indigo tint         */
+  --accent: 8 145 178;            /* cyan-600            */
+  --critical: 220 38 38;          /* rose-600            */
+  --high: 217 119 6;              /* amber-600           */
+  --medium: 2 132 199;            /* sky-600             */
+  --low: 5 150 105;               /* emerald-600         */
+  --ok: 5 150 105;
+  --warn: 217 119 6;
+  --danger: 220 38 38;
+  --shadow: 30 41 59;
+  color-scheme: light;
+}
+
+:root.dark {
+  /* Dark theme — deep slate/navy with vivid, accessible accents. */
+  --surface-base: 8 11 22;
+  --surface-raised: 17 22 38;
+  --surface-overlay: 22 28 47;
+  --ink: 237 241 250;
+  --ink-muted: 168 178 199;
+  --ink-faint: 118 130 155;
+  --line: 38 46 71;
+  --brand: 129 122 255;
+  --brand-soft: 40 40 84;
+  --accent: 34 211 238;
+  --critical: 251 113 133;
+  --high: 251 191 36;
+  --medium: 56 189 248;
+  --low: 52 211 153;
+  --ok: 52 211 153;
+  --warn: 251 191 36;
+  --danger: 251 113 133;
+  --shadow: 0 0 0;
+  color-scheme: dark;
+}
+
+* {
+  border-color: rgb(var(--line));
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-surface-base text-ink font-sans antialiased;
+  background-image:
+    radial-gradient(1000px 600px at 100% -10%, rgb(var(--brand) / 0.10), transparent 55%),
+    radial-gradient(900px 500px at -10% 10%, rgb(var(--accent) / 0.08), transparent 55%);
+  background-attachment: fixed;
+  transition: background-color 0.4s ease, color 0.3s ease;
+}
+
+/* ------------------------------------------------------------- components -- */
+@layer components {
+  .glass {
+    @apply rounded-2xl border border-line/70 bg-surface-raised/70 backdrop-blur-xl shadow-float;
+  }
+  .glass-soft {
+    @apply rounded-xl border border-line/60 bg-surface-raised/55 backdrop-blur-lg;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold
+           transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/60
+           disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98];
+  }
+  .btn-brand {
+    @apply btn bg-brand text-white shadow-glow hover:brightness-110;
+  }
+  .btn-ghost {
+    @apply btn border border-line bg-surface-raised/60 text-ink hover:bg-surface-overlay;
+  }
+  .btn-ok {
+    @apply btn text-white hover:brightness-110;
+    background-color: rgb(var(--ok));
+  }
+  .btn-danger {
+    @apply btn text-white hover:brightness-110;
+    background-color: rgb(var(--danger));
+  }
+  .label {
+    @apply text-[11px] font-semibold uppercase tracking-wider text-ink-faint;
+  }
+  .card-hover {
+    @apply transition-all duration-300 hover:-translate-y-0.5 hover:shadow-glow;
+  }
+}
+
+/* scrollbars */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  @apply rounded-full bg-line;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(var(--ink-faint));
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* markdown rendering inside narrative */
+.markdown h1 { @apply text-xl font-bold mt-2 mb-3 text-ink; }
+.markdown h2 { @apply text-base font-bold mt-5 mb-2 text-ink; }
+.markdown h3 { @apply text-sm font-semibold mt-4 mb-1.5 text-ink; }
+.markdown p { @apply text-sm leading-relaxed text-ink-muted mb-2.5; }
+.markdown ul, .markdown ol { @apply text-sm text-ink-muted mb-2.5 pl-5 list-disc space-y-1; }
+.markdown ol { @apply list-decimal; }
+.markdown li { @apply leading-relaxed; }
+.markdown strong { @apply text-ink font-semibold; }
+.markdown code { @apply font-mono text-[12px] px-1.5 py-0.5 rounded-md bg-brand-soft text-brand; }
+.markdown blockquote { @apply border-l-4 border-warn/70 bg-warn/10 rounded-r-lg px-3 py-2 text-xs my-3 text-ink-muted; }
+.markdown hr { @apply my-4 border-line; }
+.markdown table { @apply w-full text-xs my-3; }
