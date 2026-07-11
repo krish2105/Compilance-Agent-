@@ -7,7 +7,7 @@ drafts case narratives and Enhanced Due Diligence (EDD) reports with **full evid
 **verifies every claim against source data**, and routes every case through a **mandatory human
 approval gate** — it never auto-clears or auto-reports.
 
-`LangGraph` · `FastAPI` · `React + TypeScript` · `DuckDB` · `ChromaDB` · `Gemini / Groq / offline` · **$0/month**
+`LangGraph` · `FastAPI` · `React + TypeScript` · `DuckDB` · `vector RAG (in-memory / ChromaDB)` · `Gemini / Groq / offline` · **$0/month**
 
 </div>
 
@@ -65,7 +65,7 @@ renders the reasoning as it happens.
 |---|---|---|
 | **Evidence** | Assemble the case | Queries DuckDB for the case's transaction network, subject + counterparty KYC, and prior history; computes a deterministic behavioural fact/signal vector. **No LLM** — evidence must be hard ground truth. |
 | **Typology-Match** | Classify the pattern | Cosine similarity between the case signature and each of the **28 SAML-D typologies**, returning a ranked best match, confidence, and the dimensions that drove it. Deterministic and explainable — the LLM never "guesses" the label. |
-| **Regulatory-Context** | Ground it in policy | RAG lookup over the typology knowledge base in **ChromaDB** (local, offline hashing embeddings — no model downloads). |
+| **Regulatory-Context** | Ground it in policy | RAG lookup over the typology knowledge base using a **pluggable vector store** — a zero-dependency in-memory cosine store by default (offline hashing embeddings, no model downloads), or **ChromaDB** via `VECTOR_BACKEND=chroma`. Both use the same embedder, so they behave identically. |
 | **Narrative** | Draft the case | Builds a deterministic, evidence-cited EDD draft + machine-checkable claims, then asks the LLM to *polish the prose only*. The offline provider (and any failure) returns the deterministic draft verbatim. |
 | **Verifier** | Guard correctness | Recomputes every structured claim, checks every `TXN…` citation exists, and checks every currency figure matches a real evidence amount. Flags unsupported content and **triggers a deterministic retry**. |
 | **Orchestrator** | Coordinate | A **LangGraph** state machine with conditional edges and the retry path. |

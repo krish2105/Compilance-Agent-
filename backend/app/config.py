@@ -67,6 +67,11 @@ class Settings(BaseSettings):
     groq_model: str = Field(default="llama-3.3-70b-versatile", alias="GROQ_MODEL")
 
     # ---- Data / storage ----
+    # Vector store backend for the Regulatory-Context RAG: "memory" (zero-dependency,
+    # default — great for $0/512MB hosting & CI) or "chroma" (ChromaDB; requires
+    # requirements-full.txt).
+    vector_backend: str = Field(default="memory", alias="VECTOR_BACKEND")
+
     duckdb_path: str = Field(
         default=str(PROCESSED_DIR / "compliance.duckdb"), alias="DUCKDB_PATH"
     )

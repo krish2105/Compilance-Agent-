@@ -16,6 +16,10 @@ services:
         value: offline    # runs at $0 with no keys; set to gemini/groq + a key for live LLM
       - key: LLM_ENABLE_FALLBACK
         value: "true"
+      - key: VECTOR_BACKEND
+        value: memory     # zero-dependency RAG store; fits the free-tier 512MB
+      - key: PYTHON_VERSION
+        value: "3.11"
       - key: BACKEND_API_KEY
         value: "compliance-demo-2026"   # demo-only public gate over synthetic data (safe to publish)
       - key: CORS_ORIGINS

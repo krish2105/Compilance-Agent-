@@ -1,0 +1,9 @@
+# Optional heavyweight extras for the FULL local experience.
+# Install with:  pip install -r requirements.txt -r requirements-full.txt
+# Then enable the ChromaDB RAG backend with:  VECTOR_BACKEND=chroma
+#
+# ChromaDB pulls native deps (onnxruntime, hnswlib) that are heavy to build/run,
+# so they are kept OUT of the default Docker/Render/CI install. The app works
+# identically with the default in-memory vector store; ChromaDB is a drop-in
+# alternative for environments that have the memory headroom.
+chromadb==0.5.20
