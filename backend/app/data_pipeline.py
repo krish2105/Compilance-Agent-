@@ -645,9 +645,17 @@ def build_database() -> dict:
         "suspicious_tx": int(tx_df["is_laundering"].sum()),
         "db_path": db_path,
     }
-    _write_data_dictionary(stats, tx_df, kyc_df)
-    _write_typology_reference()
-    _write_eval_cases(cases_df, b)
+    # Reference docs are nice-to-have; a write failure (e.g. a path that doesn't
+    # exist inside a minimal Docker image) must never break the core data build.
+    for writer in (
+        lambda: _write_data_dictionary(stats, tx_df, kyc_df),
+        _write_typology_reference,
+        lambda: _write_eval_cases(cases_df, b),
+    ):
+        try:
+            writer()
+        except Exception as exc:  # noqa: BLE001 - docs are optional
+            print(f"[data_pipeline] skipped a reference doc write: {exc}")
     return stats
 
 
@@ -656,6 +664,7 @@ def build_database() -> dict:
 # --------------------------------------------------------------------------- #
 def _write_data_dictionary(stats: dict, tx_df: pd.DataFrame, kyc_df: pd.DataFrame) -> None:
     path = Path(__file__).resolve().parent.parent / "data" / "data_dictionary.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
     normal = "\n".join(f"{i+1}. **{t.label}** (`{t.key}`) — {t.definition}"
                        for i, t in enumerate(NORMAL_TYPOLOGIES))
     suspicious = "\n".join(f"{i+1}. **{t.label}** (`{t.key}`) — {t.definition}"
@@ -753,6 +762,7 @@ are generated together in the same pass so the linkage is exact and consistent.
 
 def _write_typology_reference() -> None:
     path = Path(__file__).resolve().parent.parent / "data" / "typology_reference.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
     lines = ["# Typology Reference (Regulatory Knowledge Base)",
              "",
              "> This file is the knowledge base indexed into ChromaDB by the "
@@ -776,6 +786,7 @@ def _write_typology_reference() -> None:
 
 def _write_eval_cases(cases_df: pd.DataFrame, b: _Builder) -> None:
     path = Path(__file__).resolve().parent.parent.parent / "evaluation" / "eval_cases.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
     # Pick a fixed benchmark spanning diverse typologies.
     wanted = ["Structuring_Smurfing", "Fan_Out", "Fan_In", "Cycle", "Rapid_Movement",
               "Sanctioned_Jurisdiction", "PEP_High_Risk", "Single_Large_Cross_Border"]
