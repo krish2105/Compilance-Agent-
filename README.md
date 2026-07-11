@@ -9,6 +9,11 @@ approval gate** — it never auto-clears or auto-reports.
 
 `LangGraph` · `FastAPI` · `React + TypeScript` · `DuckDB` · `vector RAG (in-memory / ChromaDB)` · `Gemini / Groq / offline` · **$0/month**
 
+### 🔗 Live demo
+- **App (Vercel):** https://frontend-three-pi-15.vercel.app
+- **API (Render):** https://complianceagent-backend.onrender.com/api/health
+- _The API runs on Render's free tier and **sleeps after ~15 min idle**, so the first request after inactivity has a ~30–60s cold start — just give the first case a moment to load._
+
 </div>
 
 > ⚠️ **Disclaimer.** This is a **portfolio / demo** system built on **synthetic data**. It is **not**
@@ -201,8 +206,8 @@ outcome for 17 fine-grained overlapping AML structures, and the correct label is
   cold-start delay (typically 30–60s) — expected for a portfolio demo.
 - **Frontend → Vercel** (Hobby). Set `VITE_API_URL` to the live backend URL and `VITE_API_KEY` to match
   the backend's `BACKEND_API_KEY`.
-- **Live demo link:** _add after deploying_ · **Walkthrough:** see
-  [`docs/demo_video_link.md`](docs/demo_video_link.md).
+- **Live demo:** https://frontend-three-pi-15.vercel.app (API: https://complianceagent-backend.onrender.com)
+  · **Walkthrough:** see [`docs/demo_video_link.md`](docs/demo_video_link.md).
 
 ---
 
