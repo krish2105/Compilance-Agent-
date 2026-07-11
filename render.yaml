@@ -1,0 +1,26 @@
+# Render blueprint for the ComplianceAgent backend.
+# Deploy: Render dashboard → New → Blueprint → connect this repo, or
+#         render deploys automatically from this file when the repo is linked.
+services:
+  - type: web
+    name: complianceagent-backend
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    plan: free            # free tier sleeps on inactivity (cold start ~30-60s)
+    region: oregon
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: LLM_PROVIDER
+        value: offline    # runs at $0 with no keys; set to gemini/groq + a key for live LLM
+      - key: LLM_ENABLE_FALLBACK
+        value: "true"
+      - key: BACKEND_API_KEY
+        generateValue: true   # Render generates a secret; copy it into the Vercel frontend env
+      - key: CORS_ORIGINS
+        value: "*"        # header-based auth (no cookies), so wildcard CORS is safe here
+      - key: GEMINI_API_KEY
+        sync: false       # optional — set in the Render dashboard if you want live LLM
+      - key: GROQ_API_KEY
+        sync: false

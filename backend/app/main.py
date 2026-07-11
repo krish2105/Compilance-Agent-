@@ -33,14 +33,26 @@ app = FastAPI(
     ),
 )
 
-# CORS for the Vite frontend.
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origin_list,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# CORS for the Vite frontend. Auth is via the X-API-Key header (not cookies), so
+# when CORS_ORIGINS is "*" we can safely allow any origin with credentials off —
+# this lets the deployed backend accept the Vercel frontend without hardcoding its
+# URL. Otherwise we use the explicit allow-list.
+if settings.cors_origins.strip() == "*":
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origin_list,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 # Auth + rate limiting (runs before routing for every request).
 app.add_middleware(AuthAndRateLimitMiddleware)
 
