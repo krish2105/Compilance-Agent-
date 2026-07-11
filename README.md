@@ -7,7 +7,7 @@ drafts case narratives and Enhanced Due Diligence (EDD) reports with **full evid
 **verifies every claim against source data**, and routes every case through a **mandatory human
 approval gate** — it never auto-clears or auto-reports.
 
-`LangGraph` · `FastAPI` · `React + TypeScript` · `DuckDB` · `vector RAG (in-memory / ChromaDB)` · `Gemini / Groq / offline` · **$0/month**
+`LangGraph` · `FastAPI` · `React + TypeScript` · `DuckDB` · `vector RAG (in-memory / ChromaDB)` · `Gemini / Groq / offline` · `eval gates (RAGAS/DeepEval-style)` · `Langfuse observability` · **$0/month**
 
 ### 🔗 Live demo
 - **App (Vercel):** https://frontend-three-pi-15.vercel.app
@@ -153,25 +153,60 @@ cd backend && pytest -q              # 25 tests, fully offline
 
 ---
 
-## Evaluation
+## Evaluation (eval-driven development)
 
-A fixed benchmark of cases spanning diverse typologies lives in
-[`evaluation/eval_cases.md`](evaluation/eval_cases.md). The suite
-([`backend/tests/test_agents.py`](backend/tests/test_agents.py)) runs them through the orchestrator and
-asserts typology routing, non-empty & real citations, and correct Verifier behaviour.
+Evaluation is a **first-class, CI-gated pipeline** — not an afterthought.
+[`backend/eval/run_eval.py`](backend/eval/run_eval.py) runs the full multi-agent pipeline over the
+labelled case set and computes RAGAS/DeepEval-style metrics **against the queried evidence** (so they
+need no LLM judge and cost $0), then **fails the build if any gate is violated**. Full generated report:
+[`evaluation/eval_results.md`](evaluation/eval_results.md).
 
-**Typology-matching results on the 34-case set (deterministic, reproducible):**
+**Results (deterministic, reproducible — `LLM_PROVIDER=offline`):**
 
-| Metric | Result |
-|---|---|
-| Benchmark typologies (top-1) | **16 / 16** correct |
-| Full set — top-1 accuracy | **~68%** (23 / 34) |
-| Full set — **top-3 accuracy** | **100%** (34 / 34) — the correct typology is *always* surfaced |
-| Verifier adversarial check | Catches fabricated citations + unsupported figures, triggers retry |
+| Metric | All 34 cases | Benchmark (16) | |
+|---|---|---|---|
+| Typology routing — top-1 | 0.68 | **1.00** | |
+| Typology routing — **top-3** | **1.00** | **1.00** | ✅ gate |
+| Context precision@1 (RAG) | 1.00 | 1.00 | |
+| Context recall (RAG) | 1.00 | 1.00 | ✅ gate |
+| Ground-truth recall@3 (RAG) | 0.74 | 1.00 | |
+| **Faithfulness** (claims grounded) | **1.00** | 1.00 | ✅ gate |
+| Citation validity | 1.00 | 1.00 | ✅ gate |
+| **Hallucination rate** | **0.00** | 0.00 | ✅ gate |
+| Answer relevancy (proxy) | 1.00 | 1.00 | |
+| **Verifier catch rate** (adversarial) | **1.00** | 1.00 | ✅ gate |
+| Avg latency / p95 | 67 ms / 99 ms | — | |
+| Avg cost / case | $0.00 (offline) | — | |
 
-The remaining top-1 misses are all between **genuinely sibling typologies** (scatter-gather vs
-gather-scatter, structuring vs cash-intensive structuring, bipartite vs PEP) — an honest, defensible
-outcome for 17 fine-grained overlapping AML structures, and the correct label is always in the top-3.
+- **6 CI gates** (top-3, context-recall, faithfulness, citation-validity, hallucination, verifier-catch)
+  run on every push via [`.github/workflows/ci.yml`](.github/workflows/ci.yml) and in
+  [`backend/tests/test_eval.py`](backend/tests/test_eval.py).
+- **Optional LLM-as-judge suite** ([`backend/eval/deepeval_suite.py`](backend/eval/deepeval_suite.py))
+  runs the framework-backed **DeepEval** metrics (Faithfulness / Answer-Relevancy / Hallucination) using
+  the project's own `LLMClient` as the judge, when a Gemini key is set.
+- The remaining top-1 misses are all between **genuinely sibling typologies** (scatter-gather vs
+  gather-scatter, structuring vs cash-intensive structuring) — the correct label is *always* in the top-3.
+
+---
+
+## Observability & cost model
+
+Every investigation is instrumented for **step-level latency, token usage, and $ cost** — surfaced in
+the UI (a metrics strip on the narrative), in the API result (`result.metrics`), and in the audit log.
+
+- **Local metrics — always on, $0.** Per-agent span timings + per-LLM-call token/cost, with a per-model
+  price table ([`backend/app/tools/tracing.py`](backend/app/tools/tracing.py)).
+- **Langfuse tracing — optional.** Set `LANGFUSE_PUBLIC_KEY`/`LANGFUSE_SECRET_KEY` and every agent node
+  + LLM call streams to a hosted [Langfuse](https://langfuse.com) trace. Tracing is a safe no-op when
+  unconfigured and never raises.
+- **Model router.** `generate(task=…)` routes lightweight tasks to a cheaper model tier
+  (`gemini-2.5-flash-lite` / `llama-3.1-8b`) and the narrative to the primary model — the standard
+  cost-optimisation lever.
+- **Cost model.** Offline provider = **$0/case**. With live Gemini 2.5 Flash a full investigation is a
+  single ~1–2k-token narrative call ≈ **$0.001–0.003/case** (illustrative list prices; see the price
+  table). Retrieval, typology-matching, and verification use **no** LLM tokens by design.
+
+See [`DECISIONS.md`](DECISIONS.md) for the architecture decision records behind these choices.
 
 ---
 
@@ -194,7 +229,9 @@ outcome for 17 fine-grained overlapping AML structures, and the correct label is
 - Per-client sliding-window **rate limiting** on the case-processing endpoints.
 - **Graceful LLM failover** (Gemini → Groq → deterministic offline) with clean, non-stack-trace error
   messages surfaced to the frontend.
-- CI (GitHub Actions): ruff lint + pytest on the backend, ESLint + type-check + build on the frontend.
+- CI (GitHub Actions): ruff lint + pytest **+ the evaluation gate** on the backend, ESLint + type-check
+  + build on the frontend.
+- **Step-level observability** (latency/tokens/cost per agent) always on; optional Langfuse tracing.
 - No secrets committed; everything sensitive is via `.env` (`.env.example` documents every variable).
 
 ---
@@ -214,23 +251,32 @@ outcome for 17 fine-grained overlapping AML structures, and the correct label is
 ## Repo layout
 
 ```
-backend/    FastAPI · LangGraph agents · DuckDB · ChromaDB · SQLite audit · tests
+backend/    FastAPI · LangGraph agents · DuckDB · vector RAG · SQLite audit
+backend/eval/  eval pipeline (metrics + CI gates) + optional DeepEval LLM-judge
 frontend/   React + TS + Vite + Tailwind · SSE hook · premium light/dark UI
 docs/       architecture diagram · demo walkthrough
-evaluation/ benchmark case set
+evaluation/ benchmark case set + generated eval_results.md
+DECISIONS.md  architecture decision records
 ```
 
 ---
 
-## Limitations & known failure modes (be honest)
+## Where this breaks (known failure modes — be honest)
 
 - **Synthetic data.** Typologies are simplified, stylised representations; thresholds and jurisdiction
-  lists are illustrative, not a regulatory reference.
+  lists are illustrative, not a regulatory reference. *Fix path: ingest IBM AMLworld / Elliptic.*
 - **Deterministic typology matcher** favours transparency over raw accuracy; sibling typologies are
-  sometimes swapped at top-1 (always caught in top-3).
+  sometimes swapped at top-1 (always caught in top-3). *Fix path: a GNN detector feeding the ensemble.*
+- **Hashing-embedding RAG** has no true semantic generalisation and won't scale to a large corpus.
+  *Fix path: neural embeddings + hybrid (BM25+dense) + a cross-encoder reranker — the retrieval
+  interface is isolated for exactly this swap.*
 - **Offline LLM prose** is templated (excellent for auditability and $0 running, less "fluent" than a
-  live model). Set a Gemini/Groq key for richer narratives.
-- **Single-tenant, lightweight auth** (shared API key) — not an enterprise IAM.
+  live model). *Fix path: set `GEMINI_API_KEY` — the client already routes to it.*
+- **Free-tier cold start.** Render sleeps after ~15 min idle → the first request can take 30–60s.
+- **Single-tenant, lightweight auth** (shared API key) — not an enterprise IAM; no role separation
+  (analyst vs MLRO) yet.
+- **Eval covers structure, not subjective quality.** The deterministic gates prove groundedness and
+  guardrails; judging prose quality needs the optional LLM-as-judge suite.
 
 ---
 

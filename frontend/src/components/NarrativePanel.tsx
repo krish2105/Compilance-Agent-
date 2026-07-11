@@ -1,4 +1,4 @@
-import { CheckCircle2, Cpu, FileText, ShieldCheck, XCircle } from "lucide-react";
+import { CheckCircle2, Clock, Coins, Cpu, FileText, Hash, ShieldCheck, XCircle } from "lucide-react";
 import type { InvestigationResult } from "../lib/types";
 import { cx, renderMarkdown } from "../lib/utils";
 
@@ -32,7 +32,19 @@ export default function NarrativePanel({
         {v.low_confidence && (
           <span className="chip bg-warn/15 text-warn">Low typology confidence</span>
         )}
-        <span className="ml-auto text-[11px] text-ink-faint">{v.summary}</span>
+        {result.metrics && (
+          <div className="ml-auto flex flex-wrap items-center gap-1.5">
+            <span className="chip bg-surface-base/70 text-ink-muted" title="End-to-end latency">
+              <Clock size={12} /> {Math.round(result.metrics.total_latency_ms)} ms
+            </span>
+            <span className="chip bg-surface-base/70 text-ink-muted" title="Total tokens (in + out)">
+              <Hash size={12} /> {result.metrics.total_tokens.toLocaleString()} tok
+            </span>
+            <span className="chip bg-surface-base/70 text-ink-muted" title="Estimated cost for this investigation">
+              <Coins size={12} /> ${result.metrics.total_cost_usd.toFixed(4)}
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">

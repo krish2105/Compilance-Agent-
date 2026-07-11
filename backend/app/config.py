@@ -62,9 +62,17 @@ class Settings(BaseSettings):
 
     gemini_api_key: Optional[str] = Field(default=None, alias="GEMINI_API_KEY")
     gemini_model: str = Field(default="gemini-2.5-flash", alias="GEMINI_MODEL")
+    # Cheaper tier used by the model router for lightweight/classification tasks.
+    gemini_model_light: str = Field(default="gemini-2.5-flash-lite", alias="GEMINI_MODEL_LIGHT")
 
     groq_api_key: Optional[str] = Field(default=None, alias="GROQ_API_KEY")
     groq_model: str = Field(default="llama-3.3-70b-versatile", alias="GROQ_MODEL")
+    groq_model_light: str = Field(default="llama-3.1-8b-instant", alias="GROQ_MODEL_LIGHT")
+
+    # ---- Observability (Langfuse — optional; tracing is a no-op if unset) ----
+    langfuse_public_key: Optional[str] = Field(default=None, alias="LANGFUSE_PUBLIC_KEY")
+    langfuse_secret_key: Optional[str] = Field(default=None, alias="LANGFUSE_SECRET_KEY")
+    langfuse_host: str = Field(default="https://cloud.langfuse.com", alias="LANGFUSE_HOST")
 
     # ---- Data / storage ----
     # Vector store backend for the Regulatory-Context RAG: "memory" (zero-dependency,

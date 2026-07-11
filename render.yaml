@@ -12,8 +12,12 @@ services:
     healthCheckPath: /api/health
     autoDeploy: true
     envVars:
+      # Primary provider is Gemini; it AUTOMATICALLY falls back to the deterministic
+      # offline provider until GEMINI_API_KEY is set in the Render dashboard — so the
+      # service is live at $0 immediately, and turns "generative" the moment you add
+      # a free Google AI Studio key (https://aistudio.google.com/apikey). No redeploy needed.
       - key: LLM_PROVIDER
-        value: offline    # runs at $0 with no keys; set to gemini/groq + a key for live LLM
+        value: gemini
       - key: LLM_ENABLE_FALLBACK
         value: "true"
       - key: VECTOR_BACKEND
@@ -25,6 +29,11 @@ services:
       - key: CORS_ORIGINS
         value: "*"        # header-based auth (no cookies), so wildcard CORS is safe here
       - key: GEMINI_API_KEY
-        sync: false       # optional — set in the Render dashboard if you want live LLM
+        sync: false       # set in the Render dashboard to activate live LLM narratives
       - key: GROQ_API_KEY
+        sync: false       # optional failover provider
+      # --- Observability (optional): set these to stream traces to Langfuse ---
+      - key: LANGFUSE_PUBLIC_KEY
+        sync: false
+      - key: LANGFUSE_SECRET_KEY
         sync: false

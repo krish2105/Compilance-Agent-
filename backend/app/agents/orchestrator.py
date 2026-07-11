@@ -34,7 +34,7 @@ from app.agents import (
     typology_match_agent,
     verifier,
 )
-from app.tools import audit
+from app.tools import audit, tracing
 
 MAX_RETRIES = 1
 
@@ -70,7 +70,8 @@ def _event(agent: str, step: int, status: str, title: str,
 def evidence_node(state: AgentState) -> AgentState:
     case_id = state["case_id"]
     try:
-        evidence = evidence_agent.gather_evidence(case_id)
+        with tracing.span("EvidenceAgent"):
+            evidence = evidence_agent.gather_evidence(case_id)
     except evidence_agent.EvidenceError as exc:
         audit.log_event(case_id, "EvidenceAgent", "EVIDENCE_ERROR",
                         actor_type="system", summary=str(exc))
@@ -98,7 +99,8 @@ def typology_node(state: AgentState) -> AgentState:
     if state.get("error"):
         return {}
     case_id = state["case_id"]
-    match = typology_match_agent.match_typology(state["evidence"])
+    with tracing.span("TypologyMatchAgent"):
+        match = typology_match_agent.match_typology(state["evidence"])
     audit.log_event(
         case_id, "TypologyMatchAgent", "MATCH_TYPOLOGY",
         summary=match["rationale"],
@@ -121,7 +123,8 @@ def regulatory_node(state: AgentState) -> AgentState:
     if state.get("error"):
         return {}
     case_id = state["case_id"]
-    reg = regulatory_context_agent.get_regulatory_context(state["typology_match"])
+    with tracing.span("RegulatoryContextAgent"):
+        reg = regulatory_context_agent.get_regulatory_context(state["typology_match"])
     audit.log_event(
         case_id, "RegulatoryContextAgent", "RAG_LOOKUP",
         summary=f"Retrieved regulatory context for {reg['primary']['label']} "
@@ -143,10 +146,11 @@ def narrative_node(state: AgentState) -> AgentState:
         return {}
     case_id = state["case_id"]
     force_offline = bool(state.get("force_offline"))
-    result = narrative_agent.draft_narrative(
-        state["evidence"], state["typology_match"], state["regulatory"],
-        force_offline=force_offline,
-    )
+    with tracing.span("NarrativeAgent", force_offline=force_offline):
+        result = narrative_agent.draft_narrative(
+            state["evidence"], state["typology_match"], state["regulatory"],
+            force_offline=force_offline,
+        )
     audit.log_event(
         case_id, "NarrativeAgent", "DRAFT_NARRATIVE",
         summary=f"Drafted case narrative ({len(result['claims'])} verifiable claims).",
@@ -173,9 +177,10 @@ def verifier_node(state: AgentState) -> AgentState:
     if state.get("error"):
         return {}
     case_id = state["case_id"]
-    v = verifier.verify_narrative(
-        state["evidence"], state["narrative_result"], state["typology_match"]
-    )
+    with tracing.span("Verifier"):
+        v = verifier.verify_narrative(
+            state["evidence"], state["narrative_result"], state["typology_match"]
+        )
     retry = state.get("retry_count", 0)
     will_retry = v["should_retry"] and retry < MAX_RETRIES
     audit.log_event(
@@ -274,16 +279,27 @@ def run_case_events(case_id: str) -> Generator[Dict[str, Any], None, Dict[str, A
     graph = build_graph()
     init: AgentState = {"case_id": case_id, "retry_count": 0, "force_offline": False,
                         "events": []}
+    tracing.start_run(case_id)
     audit.log_event(case_id, "Orchestrator", "PIPELINE_START", actor_type="system",
                     summary=f"Investigation pipeline started for {case_id}.")
     final_state: AgentState = {}
-    for update in graph.stream(init, stream_mode="updates"):
-        for _node_name, delta in update.items():
-            if not delta:
-                continue
-            final_state.update(delta)
-            for ev in delta.get("events", []):
-                yield ev
+    try:
+        for update in graph.stream(init, stream_mode="updates"):
+            for _node_name, delta in update.items():
+                if not delta:
+                    continue
+                final_state.update(delta)
+                for ev in delta.get("events", []):
+                    yield ev
+    finally:
+        metrics = tracing.finish_run()
+        final_state["_metrics"] = metrics
+        if metrics:
+            audit.log_event(case_id, "Orchestrator", "RUN_METRICS", actor_type="system",
+                            summary=f"latency {metrics.get('total_latency_ms')}ms · "
+                                    f"{metrics.get('total_tokens')} tokens · "
+                                    f"${metrics.get('total_cost_usd')}",
+                            detail=metrics)
     return final_state
 
 
@@ -292,9 +308,20 @@ def run_case(case_id: str) -> Dict[str, Any]:
     graph = build_graph()
     init: AgentState = {"case_id": case_id, "retry_count": 0, "force_offline": False,
                         "events": []}
+    tracing.start_run(case_id)
     audit.log_event(case_id, "Orchestrator", "PIPELINE_START", actor_type="system",
                     summary=f"Investigation pipeline started for {case_id}.")
-    final = graph.invoke(init)
+    try:
+        final = graph.invoke(init)
+    finally:
+        metrics = tracing.finish_run()
+    final["_metrics"] = metrics
+    if metrics:
+        audit.log_event(case_id, "Orchestrator", "RUN_METRICS", actor_type="system",
+                        summary=f"latency {metrics.get('total_latency_ms')}ms · "
+                                f"{metrics.get('total_tokens')} tokens · "
+                                f"${metrics.get('total_cost_usd')}",
+                        detail=metrics)
     return assemble_result(case_id, final)
 
 
@@ -321,5 +348,6 @@ def assemble_result(case_id: str, state: AgentState) -> Dict[str, Any]:
         "llm_provider": state["narrative_result"]["llm_provider"],
         "llm_fallback_used": state["narrative_result"]["llm_fallback_used"],
         "verification": state["verification"],
+        "metrics": state.get("_metrics", {}),
         "events": state.get("events", []),
     }

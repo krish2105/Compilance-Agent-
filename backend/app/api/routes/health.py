@@ -7,6 +7,7 @@ from fastapi import APIRouter
 
 from app.config import settings
 from app.llm.llm_client import llm_client
+from app.tools import tracing
 
 router = APIRouter(prefix="/api/health", tags=["health"])
 
@@ -21,6 +22,7 @@ def health() -> dict:
         "environment": settings.environment,
         "data_ready": db_ready,
         "llm": llm_client.health(),
+        "observability": tracing.observability_status(),
         "disclaimer": (
             "Portfolio/demo system on synthetic data. Not certified compliance "
             "software. Every output is a draft requiring human sign-off."

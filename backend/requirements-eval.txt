@@ -1,0 +1,8 @@
+# Optional evaluation extras — LLM-as-judge frameworks.
+# The deterministic eval (eval/run_eval.py) is the enforced CI gate and needs NONE
+# of these. Install these only to run the framework-backed LLM-judge suite:
+#   pip install -r requirements.txt -r requirements-eval.txt
+#   LLM_PROVIDER=gemini GEMINI_API_KEY=... python -m eval.deepeval_suite
+deepeval==1.5.9
+# ragas is also supported conceptually; add it here if you wire eval/ragas_suite.py:
+# ragas==0.2.6

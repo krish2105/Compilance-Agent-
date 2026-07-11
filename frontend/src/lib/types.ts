@@ -112,6 +112,26 @@ export interface Verification {
   summary: string;
 }
 
+export interface RunMetrics {
+  total_latency_ms: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  total_tokens: number;
+  total_cost_usd: number;
+  llm_calls: number;
+  providers: string[];
+  spans: { name: string; latency_ms: number }[];
+  generations: {
+    provider: string;
+    model: string;
+    task: string;
+    input_tokens: number;
+    output_tokens: number;
+    cost_usd: number;
+    latency_ms: number;
+  }[];
+}
+
 export interface InvestigationResult {
   case_id: string;
   status: string;
@@ -141,6 +161,7 @@ export interface InvestigationResult {
   llm_provider: string;
   llm_fallback_used: boolean;
   verification: Verification;
+  metrics?: RunMetrics;
   error?: string;
 }
 

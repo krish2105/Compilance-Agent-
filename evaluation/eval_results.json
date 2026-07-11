@@ -1,0 +1,82 @@
+{
+  "n_cases": 34,
+  "n_benchmark": 16,
+  "overall": {
+    "typology_top1": 0.6765,
+    "typology_top3": 1.0,
+    "context_precision@1": 1.0,
+    "context_recall": 1.0,
+    "groundtruth_recall@3": 0.7353,
+    "faithfulness": 1.0,
+    "citation_validity": 1.0,
+    "hallucination_rate": 0.0,
+    "answer_relevancy": 1.0,
+    "avg_latency_ms": 61.6088,
+    "p95_latency_ms": 91.8,
+    "avg_cost_usd": 0.0,
+    "total_cost_usd": 0.0,
+    "verifier_catch_rate": 1.0
+  },
+  "benchmark": {
+    "typology_top1": 1.0,
+    "typology_top3": 1.0,
+    "context_precision@1": 1.0,
+    "context_recall": 1.0,
+    "groundtruth_recall@3": 1.0,
+    "faithfulness": 1.0,
+    "citation_validity": 1.0,
+    "hallucination_rate": 0.0,
+    "answer_relevancy": 1.0,
+    "avg_latency_ms": 59.4188,
+    "p95_latency_ms": 91.8,
+    "avg_cost_usd": 0.0,
+    "total_cost_usd": 0.0,
+    "verifier_catch_rate": 1.0
+  },
+  "gates": [
+    {
+      "metric": "typology_top3",
+      "op": ">=",
+      "threshold": 1.0,
+      "value": 1.0,
+      "passed": true
+    },
+    {
+      "metric": "context_recall",
+      "op": ">=",
+      "threshold": 0.9,
+      "value": 1.0,
+      "passed": true
+    },
+    {
+      "metric": "faithfulness",
+      "op": ">=",
+      "threshold": 0.95,
+      "value": 1.0,
+      "passed": true
+    },
+    {
+      "metric": "citation_validity",
+      "op": ">=",
+      "threshold": 1.0,
+      "value": 1.0,
+      "passed": true
+    },
+    {
+      "metric": "hallucination_rate",
+      "op": "<=",
+      "threshold": 0.0,
+      "value": 0.0,
+      "passed": true
+    },
+    {
+      "metric": "verifier_catch_rate",
+      "op": ">=",
+      "threshold": 1.0,
+      "value": 1.0,
+      "passed": true
+    }
+  ],
+  "passed_all_gates": true,
+  "llm_provider": "offline"
+}

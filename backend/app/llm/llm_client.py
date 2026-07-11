@@ -16,15 +16,23 @@ every configured online provider fails (rate limit, network, auth), the client
 returns `fallback_text`. This means the copilot ALWAYS produces sensible,
 evidence-grounded output — online providers simply polish the prose.
 
+The client also:
+  * routes to a cheaper model tier for lightweight tasks (`task="classify"`) vs
+    the primary model for `task="narrative"` — a simple model router, which is an
+    explicit 2026 production competency (cost optimisation), and
+  * records token usage, cost, and latency for every call via `tools.tracing`.
+
 Swapping providers is a one-line change: set `LLM_PROVIDER` in the environment.
 """
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Tuple
 
 from app.config import settings
+from app.tools import tracing
 
 logger = logging.getLogger("complianceagent.llm")
 
@@ -41,6 +49,11 @@ class LLMResponse:
     provider_used: str          # "gemini" | "groq" | "offline"
     model: str
     fallback_used: bool         # True if we fell back to the deterministic draft
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cost_usd: float = 0.0
+    latency_ms: float = 0.0
+    task: str = "narrative"
     note: Optional[str] = None  # human-readable note (e.g. why fallback happened)
 
 
@@ -67,43 +80,37 @@ class LLMClient:
         system: Optional[str] = None,
         temperature: float = 0.2,
         max_tokens: int = 1200,
+        task: str = "narrative",
+        name: str = "llm",
     ) -> LLMResponse:
         """Generate text from the configured provider with automatic failover.
 
-        Parameters
-        ----------
-        prompt:
-            The user/content prompt for the model.
-        fallback_text:
-            A deterministic, evidence-grounded draft. Returned verbatim when the
-            provider is "offline" or when all online providers fail. This is what
-            makes the system robust and $0-capable.
-        system:
-            Optional system instruction.
-        temperature, max_tokens:
-            Standard generation controls.
+        `task` selects the model tier via the router ("narrative" → primary model,
+        "classify"/light → cheaper model). Token usage, cost, and latency are
+        recorded to the active run's metrics/trace.
         """
-        # Build the failover chain. The offline provider is always the final
-        # safety net so a response is guaranteed.
         chain = self._provider_chain()
         last_error: Optional[str] = None
 
         for prov in chain:
+            t0 = time.perf_counter()
             try:
                 if prov == "offline":
-                    return LLMResponse(
-                        text=fallback_text,
-                        provider_used="offline",
-                        model="deterministic-template-v1",
-                        fallback_used=True,
-                        note=last_error,
-                    )
+                    model = "deterministic-template-v1"
+                    resp = self._finish(name, "offline", model, prompt, fallback_text,
+                                        t0, task, True, last_error)
+                    return resp
+                model = self._model_for(prov, task)
                 if prov == "gemini":
-                    text = self._generate_gemini(prompt, system, temperature, max_tokens)
-                    return LLMResponse(text, "gemini", settings.gemini_model, False, last_error)
-                if prov == "groq":
-                    text = self._generate_groq(prompt, system, temperature, max_tokens)
-                    return LLMResponse(text, "groq", settings.groq_model, False, last_error)
+                    text, in_tok, out_tok = self._generate_gemini(
+                        prompt, system, temperature, max_tokens, model)
+                elif prov == "groq":
+                    text, in_tok, out_tok = self._generate_groq(
+                        prompt, system, temperature, max_tokens, model)
+                else:  # pragma: no cover
+                    continue
+                return self._finish(name, prov, model, prompt, text, t0, task,
+                                    False, last_error, in_tok, out_tok)
             except LLMProviderError as exc:
                 last_error = f"{prov} failed: {exc}"
                 logger.warning(last_error)
@@ -111,15 +118,10 @@ class LLMClient:
                     break
                 continue
 
-        # If we somehow exhaust the chain without returning (fallback disabled),
-        # still return the deterministic draft rather than raising to the caller.
-        return LLMResponse(
-            text=fallback_text,
-            provider_used="offline",
-            model="deterministic-template-v1",
-            fallback_used=True,
-            note=last_error or "fallback disabled; returned deterministic draft",
-        )
+        # Fallback disabled and all online providers failed → still return the draft.
+        return self._finish(name, "offline", "deterministic-template-v1", prompt,
+                            fallback_text, time.perf_counter(), task, True,
+                            last_error or "fallback disabled; returned deterministic draft")
 
     def health(self) -> dict:
         """Lightweight readiness report for the /health endpoint."""
@@ -129,72 +131,93 @@ class LLMClient:
             "gemini_key_present": bool(settings.gemini_api_key),
             "groq_key_present": bool(settings.groq_api_key),
             "effective_chain": self._provider_chain(),
+            "model_router": {
+                "narrative": self._model_for(self.provider, "narrative")
+                if self.provider != "offline" else "deterministic-template-v1",
+                "classify": self._model_for(self.provider, "classify")
+                if self.provider != "offline" else "deterministic-template-v1",
+            },
         }
 
     # --------------------------------------------------------------- internals
 
+    def _finish(self, name, provider, model, prompt, text, t0, task,
+                fallback_used, note, in_tok=None, out_tok=None) -> LLMResponse:
+        latency_ms = (time.perf_counter() - t0) * 1000
+        gen = tracing.record_generation(
+            name=name, provider=provider, model=model, input_text=prompt or "",
+            output_text=text or "", latency_ms=latency_ms,
+            input_tokens=in_tok, output_tokens=out_tok, task=task,
+        )
+        return LLMResponse(
+            text=text, provider_used=provider, model=model, fallback_used=fallback_used,
+            input_tokens=gen["input_tokens"], output_tokens=gen["output_tokens"],
+            cost_usd=gen["cost_usd"], latency_ms=round(latency_ms, 1), task=task, note=note,
+        )
+
+    def _model_for(self, provider: str, task: str) -> str:
+        """Model router: cheap tier for light tasks, primary tier for narrative."""
+        light = task in ("classify", "light", "route", "extract")
+        if provider == "gemini":
+            return settings.gemini_model_light if light else settings.gemini_model
+        if provider == "groq":
+            return settings.groq_model_light if light else settings.groq_model
+        return "deterministic-template-v1"
+
     def _provider_chain(self) -> list[str]:
-        """Ordered list of providers to try for this call."""
         if self.provider == "offline":
             return ["offline"]
-
         chain: list[str] = []
         if self.provider == "gemini" and settings.gemini_api_key:
             chain.append("gemini")
         if self.provider == "groq" and settings.groq_api_key:
             chain.append("groq")
-
         if self.enable_fallback:
-            # Add the *other* online provider as a failover lane if it has a key.
             if "gemini" not in chain and settings.gemini_api_key:
                 chain.append("gemini")
             if "groq" not in chain and settings.groq_api_key:
                 chain.append("groq")
-
-        # Deterministic offline provider is always the last safety net.
         chain.append("offline")
         return chain
 
     def _generate_gemini(
-        self, prompt: str, system: Optional[str], temperature: float, max_tokens: int
-    ) -> str:
+        self, prompt, system, temperature, max_tokens, model
+    ) -> Tuple[str, Optional[int], Optional[int]]:
         if not settings.gemini_api_key:
             raise LLMProviderError("GEMINI_API_KEY not configured")
         try:
             import google.generativeai as genai
-        except ImportError as exc:  # pragma: no cover - dependency guard
+        except ImportError as exc:  # pragma: no cover
             raise LLMProviderError(f"google-generativeai not installed: {exc}")
-
         try:
             genai.configure(api_key=settings.gemini_api_key)
-            model = genai.GenerativeModel(
-                settings.gemini_model,
-                system_instruction=system or None,
-            )
-            resp = model.generate_content(
+            gm = genai.GenerativeModel(model, system_instruction=system or None)
+            resp = gm.generate_content(
                 prompt,
-                generation_config={
-                    "temperature": temperature,
-                    "max_output_tokens": max_tokens,
-                },
+                generation_config={"temperature": temperature,
+                                   "max_output_tokens": max_tokens},
             )
             text = (getattr(resp, "text", None) or "").strip()
             if not text:
                 raise LLMProviderError("empty response from Gemini")
-            return text
-        except Exception as exc:  # noqa: BLE001 - normalize any SDK error
+            in_tok = out_tok = None
+            um = getattr(resp, "usage_metadata", None)
+            if um is not None:
+                in_tok = getattr(um, "prompt_token_count", None)
+                out_tok = getattr(um, "candidates_token_count", None)
+            return text, in_tok, out_tok
+        except Exception as exc:  # noqa: BLE001
             raise LLMProviderError(str(exc)) from exc
 
     def _generate_groq(
-        self, prompt: str, system: Optional[str], temperature: float, max_tokens: int
-    ) -> str:
+        self, prompt, system, temperature, max_tokens, model
+    ) -> Tuple[str, Optional[int], Optional[int]]:
         if not settings.groq_api_key:
             raise LLMProviderError("GROQ_API_KEY not configured")
         try:
             from groq import Groq
-        except ImportError as exc:  # pragma: no cover - dependency guard
+        except ImportError as exc:  # pragma: no cover
             raise LLMProviderError(f"groq SDK not installed: {exc}")
-
         try:
             client = Groq(api_key=settings.groq_api_key)
             messages = []
@@ -202,16 +225,19 @@ class LLMClient:
                 messages.append({"role": "system", "content": system})
             messages.append({"role": "user", "content": prompt})
             resp = client.chat.completions.create(
-                model=settings.groq_model,
-                messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
+                model=model, messages=messages,
+                temperature=temperature, max_tokens=max_tokens,
             )
             text = (resp.choices[0].message.content or "").strip()
             if not text:
                 raise LLMProviderError("empty response from Groq")
-            return text
-        except Exception as exc:  # noqa: BLE001 - normalize any SDK error
+            in_tok = out_tok = None
+            usage = getattr(resp, "usage", None)
+            if usage is not None:
+                in_tok = getattr(usage, "prompt_tokens", None)
+                out_tok = getattr(usage, "completion_tokens", None)
+            return text, in_tok, out_tok
+        except Exception as exc:  # noqa: BLE001
             raise LLMProviderError(str(exc)) from exc
 
 

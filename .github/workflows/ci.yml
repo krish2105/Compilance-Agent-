@@ -30,6 +30,11 @@ jobs:
         env:
           LLM_PROVIDER: offline
         run: pytest -q
+      - name: Evaluation gate (eval-driven development)
+        working-directory: backend
+        env:
+          LLM_PROVIDER: offline
+        run: python -m eval.run_eval
 
   frontend:
     name: Frontend · lint + build
