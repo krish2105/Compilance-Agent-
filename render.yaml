@@ -17,7 +17,7 @@ services:
       - key: LLM_ENABLE_FALLBACK
         value: "true"
       - key: BACKEND_API_KEY
-        generateValue: true   # Render generates a secret; copy it into the Vercel frontend env
+        value: "compliance-demo-2026"   # demo-only public gate over synthetic data (safe to publish)
       - key: CORS_ORIGINS
         value: "*"        # header-based auth (no cookies), so wildcard CORS is safe here
       - key: GEMINI_API_KEY
