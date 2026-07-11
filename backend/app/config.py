@@ -80,6 +80,14 @@ class Settings(BaseSettings):
     # requirements-full.txt).
     vector_backend: str = Field(default="memory", alias="VECTOR_BACKEND")
 
+    # ---- Advanced RAG ----
+    # Embeddings: "hashing" (offline, $0, default) or "gemini" (neural, needs key).
+    embedding_backend: str = Field(default="hashing", alias="EMBEDDING_BACKEND")
+    # Retrieval: "hybrid" (BM25+dense RRF, default) | "dense" | "bm25".
+    retrieval_mode: str = Field(default="hybrid", alias="RETRIEVAL_MODE")
+    # Reranker: "lexical" (deterministic, default) | "llm" (Gemini) | "none".
+    reranker: str = Field(default="lexical", alias="RERANKER")
+
     duckdb_path: str = Field(
         default=str(PROCESSED_DIR / "compliance.duckdb"), alias="DUCKDB_PATH"
     )

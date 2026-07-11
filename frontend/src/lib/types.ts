@@ -132,6 +132,20 @@ export interface RunMetrics {
   }[];
 }
 
+export interface CaseGraph {
+  nodes: {
+    id: string;
+    label: string;
+    role: "subject" | "collector" | "distributor";
+    in_degree: number;
+    out_degree: number;
+    x: number;
+    y: number;
+  }[];
+  edges: { source: string; target: string; amount: number; laundering: number; txid: string }[];
+  features: Record<string, unknown>;
+}
+
 export interface InvestigationResult {
   case_id: string;
   status: string;
@@ -142,6 +156,7 @@ export interface InvestigationResult {
     transactions: Transaction[];
     prior_history: Transaction[];
     counterparty_kyc: Record<string, Kyc>;
+    graph?: CaseGraph;
   };
   typology_match: TypologyMatch;
   regulatory: {
@@ -152,8 +167,16 @@ export interface InvestigationResult {
       red_flags: string[];
       regulatory_note: string;
     };
-    retrieved: { typology_key: string; label: string; text: string; distance: number }[];
+    retrieved: {
+      chunk_id?: string;
+      typology_key: string;
+      label: string;
+      section?: string;
+      text: string;
+      rank?: number;
+    }[];
     rag_backend: string;
+    rag_meta?: Record<string, unknown>;
   };
   narrative: string;
   claims: { id: string; statement: string }[];

@@ -7,7 +7,7 @@ drafts case narratives and Enhanced Due Diligence (EDD) reports with **full evid
 **verifies every claim against source data**, and routes every case through a **mandatory human
 approval gate** — it never auto-clears or auto-reports.
 
-`LangGraph` · `FastAPI` · `React + TypeScript` · `DuckDB` · `vector RAG (in-memory / ChromaDB)` · `Gemini / Groq / offline` · `eval gates (RAGAS/DeepEval-style)` · `Langfuse observability` · **$0/month**
+`LangGraph` · `FastAPI` · `React + TypeScript` · `DuckDB` · `hybrid RAG (BM25+dense+rerank)` · `NetworkX graph analytics` · `Gemini / Groq / offline` · `eval gates (RAGAS/DeepEval-style)` · `Langfuse observability` · `OWASP guardrails` · **$0/month**
 
 ### 🔗 Live demo
 - **App (Vercel):** https://frontend-three-pi-15.vercel.app
@@ -70,7 +70,7 @@ renders the reasoning as it happens.
 |---|---|---|
 | **Evidence** | Assemble the case | Queries DuckDB for the case's transaction network, subject + counterparty KYC, and prior history; computes a deterministic behavioural fact/signal vector. **No LLM** — evidence must be hard ground truth. |
 | **Typology-Match** | Classify the pattern | Cosine similarity between the case signature and each of the **28 SAML-D typologies**, returning a ranked best match, confidence, and the dimensions that drove it. Deterministic and explainable — the LLM never "guesses" the label. |
-| **Regulatory-Context** | Ground it in policy | RAG lookup over the typology knowledge base using a **pluggable vector store** — a zero-dependency in-memory cosine store by default (offline hashing embeddings, no model downloads), or **ChromaDB** via `VECTOR_BACKEND=chroma`. Both use the same embedder, so they behave identically. |
+| **Regulatory-Context** | Ground it in policy | **Advanced RAG** over a ~112-chunk regulatory KB: **hybrid retrieval** (BM25 + dense embeddings, **RRF-fused**) → **reranking** (funnel), reporting **Recall@5 / MRR / nDCG@10**. Embeddings are pluggable — offline hashing ($0) or **Gemini neural** (`EMBEDDING_BACKEND=gemini`); reranker is lexical (default) or **LLM** (`RERANKER=llm`). |
 | **Narrative** | Draft the case | Builds a deterministic, evidence-cited EDD draft + machine-checkable claims, then asks the LLM to *polish the prose only*. The offline provider (and any failure) returns the deterministic draft verbatim. |
 | **Verifier** | Guard correctness | Recomputes every structured claim, checks every `TXN…` citation exists, and checks every currency figure matches a real evidence amount. Flags unsupported content and **triggers a deterministic retry**. |
 | **Orchestrator** | Coordinate | A **LangGraph** state machine with conditional edges and the retry path. |
@@ -170,6 +170,9 @@ need no LLM judge and cost $0), then **fails the build if any gate is violated**
 | Context precision@1 (RAG) | 1.00 | 1.00 | |
 | Context recall (RAG) | 1.00 | 1.00 | ✅ gate |
 | Ground-truth recall@3 (RAG) | 0.74 | 1.00 | |
+| **Retrieval Recall@5** (hybrid KB) | 0.68 | — | ✅ gate |
+| **Retrieval MRR** | **1.00** | — | |
+| **Retrieval nDCG@10** | **0.84** | — | ✅ gate |
 | **Faithfulness** (claims grounded) | **1.00** | 1.00 | ✅ gate |
 | Citation validity | 1.00 | 1.00 | ✅ gate |
 | **Hallucination rate** | **0.00** | 0.00 | ✅ gate |
@@ -210,7 +213,33 @@ See [`DECISIONS.md`](DECISIONS.md) for the architecture decision records behind 
 
 ---
 
-## Guardrails (all genuinely functional, not cosmetic)
+## Advanced capabilities (graph analytics · real-data ingestion)
+
+- **Graph analytics ([`app/tools/graph.py`](backend/app/tools/graph.py)).** Each case's transactions are
+  modelled as a **NetworkX** directed multigraph; the pipeline computes real network features
+  (degree, betweenness centrality, cycles, communities, connected components, reciprocity) and the UI
+  renders an animated **transaction-network graph** (subject highlighted, flagged edges in red) — the
+  foundation graph-based AML detection builds on.
+- **Real-dataset ingestion ([`app/data_ingest.py`](backend/app/data_ingest.py)).** Ingests the **IBM
+  AMLworld / AMLSim** CSV schema (the standard open AML benchmark) — derives investigation cases from
+  connected laundering components and runs them through the same pipeline. Ships a schema-faithful
+  sample; drop a real Kaggle `*_Trans.csv` into `backend/data/raw/` and set `INCLUDE_AMLWORLD=1`. This
+  directly answers the "but it's synthetic" critique.
+
+## Guardrails — mapped to the OWASP Top 10 for LLMs
+
+Lightweight, dependency-free defenses in [`app/tools/guardrails.py`](backend/app/tools/guardrails.py)
+(Presidio / LLM-Guard are documented upgrade paths):
+
+| OWASP | Control |
+|---|---|
+| **LLM01 Prompt Injection** | Free-text fields (alert summaries, analyst notes, edited narratives) screened for override/jailbreak patterns; injected review inputs are **rejected (422)**. |
+| **LLM02 Insecure Output Handling** | Model output scanned for PII/injection echoes before it's surfaced. |
+| **LLM05 Improper Input Handling** | Case ids, reviewer names, and decision enums validated. |
+| **LLM06 Sensitive Info Disclosure** | PII (email/SSN/IBAN/Luhn-valid cards) detected and **redacted**. |
+| **LLM09 Over-reliance** | Every claim verified against source evidence (the Verifier). |
+
+Plus the core guardrails (all genuinely functional, not cosmetic):
 
 - **Verifier checks against real data.** It re-queries the evidence and recomputes/matches every claim,
   figure, and citation — see `test_verifier_flags_unsupported_claim`.
@@ -218,6 +247,7 @@ See [`DECISIONS.md`](DECISIONS.md) for the architecture decision records behind 
   human decision (`POST /api/cases/{id}/review`). No code path auto-approves.
 - **Persistent audit log.** Every agent decision and human action is written to SQLite with timestamps
   (`app/tools/audit.py`), viewable in the UI.
+- **Versioned prompts.** Prompt templates carry a version (`narrative-v1`), surfaced in results/audit.
 - **Draft-only framing everywhere.** The UI banner, generated narratives, and API all state the output
   is a draft pending human review; the system never implies a case is cleared or reported.
 

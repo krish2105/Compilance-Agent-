@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 from app.agents import orchestrator
 from app.api import store
-from app.tools import audit, db
+from app.tools import audit, db, guardrails
 
 router = APIRouter(prefix="/api/cases", tags=["cases"])
 
@@ -105,6 +105,15 @@ def submit_review(case_id: str, req: ReviewRequest) -> dict:
             status_code=422,
             detail="edited_narrative is required when decision == EDITED.",
         )
+    # Guardrails on human-supplied free text (OWASP LLM01/LLM05).
+    if not guardrails.validate_reviewer(req.reviewer):
+        raise HTTPException(status_code=422, detail="Invalid reviewer name.")
+    for field, value in (("notes", req.notes), ("edited_narrative", req.edited_narrative)):
+        if value and guardrails.detect_prompt_injection(value):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Potential prompt-injection detected in '{field}'; rejected.",
+            )
 
     review = audit.record_review(
         case_id, decision, req.reviewer,

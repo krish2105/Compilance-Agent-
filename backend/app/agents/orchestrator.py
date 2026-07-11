@@ -88,9 +88,10 @@ def evidence_node(state: AgentState) -> AgentState:
     return {
         "evidence": evidence,
         "events": [_event("EvidenceAgent", 1, "done",
-                          "Gathered case evidence from DuckDB",
+                          "Gathered case evidence + built transaction graph",
                           {"summary": evidence["evidence_summary"],
                            "facts": evidence["facts"],
+                           "graph_features": evidence.get("graph", {}).get("features", {}),
                            "transaction_count": evidence["facts"]["transaction_count"]})],
     }
 
@@ -339,6 +340,7 @@ def assemble_result(case_id: str, state: AgentState) -> Dict[str, Any]:
             "transactions": state["evidence"]["transactions"],
             "prior_history": state["evidence"]["prior_history"],
             "counterparty_kyc": state["evidence"]["counterparty_kyc"],
+            "graph": state["evidence"].get("graph", {}),
         },
         "typology_match": state["typology_match"],
         "regulatory": state["regulatory"],
@@ -346,8 +348,12 @@ def assemble_result(case_id: str, state: AgentState) -> Dict[str, Any]:
         "claims": state["narrative_result"]["claims"],
         "citations": state["narrative_result"]["citations"],
         "llm_provider": state["narrative_result"]["llm_provider"],
+        "llm_model": state["narrative_result"].get("llm_model"),
         "llm_fallback_used": state["narrative_result"]["llm_fallback_used"],
+        "llm_note": state["narrative_result"].get("llm_note"),
+        "prompt_version": state["narrative_result"].get("prompt_version"),
         "verification": state["verification"],
+        "guardrails": state["narrative_result"].get("guardrails", {}),
         "metrics": state.get("_metrics", {}),
         "events": state.get("events", []),
     }

@@ -18,14 +18,17 @@
 | Typology routing — top-3 | 1.000 | 1.000 |
 | Context precision@1 (RAG) | 1.000 | 1.000 |
 | Context recall (RAG) | 1.000 | 1.000 |
-| Ground-truth recall@3 (RAG) | 0.735 | 1.000 |
+| Ground-truth recall@3 (RAG) | 0.794 | 1.000 |
+| Retrieval Recall@5 (KB) | 0.682 | 0.682 |
+| Retrieval MRR (KB) | 1.000 | 1.000 |
+| Retrieval nDCG@10 (KB) | 0.844 | 0.844 |
 | Faithfulness (claims grounded) | 1.000 | 1.000 |
 | Citation validity | 1.000 | 1.000 |
 | Hallucination rate | 0.000 | 0.000 |
-| Answer relevancy (proxy) | 1.000 | 1.000 |
+| Answer relevancy (proxy) | 0.667 | 0.667 |
 | Verifier catch rate (adversarial) | 1.000 | 1.000 |
-| Avg latency (ms) | 62 | 59 |
-| p95 latency (ms) | 92 | 92 |
+| Avg latency (ms) | 77 | 85 |
+| p95 latency (ms) | 101 | 344 |
 | Avg cost / case (USD) | 0.000000 | 0.000000 |
 
 ## CI gates
@@ -34,6 +37,8 @@
 |---|---|---|---|
 | `typology_top3` | >= 1.0 | 1.000 | ✅ |
 | `context_recall` | >= 0.9 | 1.000 | ✅ |
+| `recall@5` | >= 0.6 | 0.682 | ✅ |
+| `ndcg@10` | >= 0.75 | 0.844 | ✅ |
 | `faithfulness` | >= 0.95 | 1.000 | ✅ |
 | `citation_validity` | >= 1.0 | 1.000 | ✅ |
 | `hallucination_rate` | <= 0.0 | 0.000 | ✅ |

@@ -600,16 +600,38 @@ def _load_real_saml_d() -> Optional[pd.DataFrame]:
     return None
 
 
-def build_database() -> dict:
-    """Full pipeline: generate/ingest -> join -> cases -> DuckDB -> docs."""
+def build_database(include_amlworld: Optional[bool] = None) -> dict:
+    """Full pipeline: generate/ingest -> join -> cases -> DuckDB -> docs.
+
+    `include_amlworld` (or env INCLUDE_AMLWORLD=1) additionally ingests the real
+    IBM AMLworld CSV schema (a bundled sample, or a real Kaggle file dropped into
+    raw/) as extra `AML-####` cases. Off by default so the benchmark eval stays
+    reproducible on the 28-typology synthetic set.
+    """
     os.makedirs(PROCESSED_DIR, exist_ok=True)
     _load_real_saml_d()  # detection + guidance only (see docstring)
 
     b = build_synthetic()
-    tx_df = pd.DataFrame(b.tx_rows)
-    kyc_df = pd.DataFrame([b.kyc[a] for a in b.accounts])
-    cases_df = pd.DataFrame(b.case_rows)
-    case_tx_df = pd.DataFrame(b.case_tx_rows)
+    tx_rows, case_rows, case_tx_rows = list(b.tx_rows), list(b.case_rows), list(b.case_tx_rows)
+    kyc_records = [b.kyc[a] for a in b.accounts]
+
+    if include_amlworld is None:
+        include_amlworld = os.environ.get("INCLUDE_AMLWORLD", "").lower() in ("1", "true", "yes")
+    if include_amlworld:
+        from app.data_ingest import find_amlworld_file, generate_amlworld_sample, ingest_amlworld
+        path = find_amlworld_file() or generate_amlworld_sample()
+        a_tx, a_kyc, a_cases, a_ctx = ingest_amlworld(path)
+        tx_rows += a_tx
+        kyc_records += a_kyc
+        case_rows += a_cases
+        case_tx_rows += a_ctx
+        print(f"[data_pipeline] ingested AMLworld ({path.name}): "
+              f"{len(a_tx)} tx, {len(a_cases)} cases")
+
+    tx_df = pd.DataFrame(tx_rows)
+    kyc_df = pd.DataFrame(kyc_records)
+    cases_df = pd.DataFrame(case_rows)
+    case_tx_df = pd.DataFrame(case_tx_rows)
 
     _write_raw_csvs(tx_df, kyc_df)
 

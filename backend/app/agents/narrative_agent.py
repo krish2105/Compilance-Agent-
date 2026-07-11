@@ -22,12 +22,17 @@ from __future__ import annotations
 from typing import Any, Dict, List
 
 from app.llm.llm_client import LLMClient, llm_client
+from app.tools import guardrails
 
 DRAFT_BANNER = (
     "> **DRAFT — PENDING HUMAN REVIEW.** This assessment was prepared by an AI "
     "copilot from synthetic data. It is **not** a cleared case and has **not** been "
     "reported to any authority. A qualified analyst must review, edit or reject it."
 )
+
+# Prompt templates are versioned (peer-reviewed before bumping) — surfaced in the
+# result and audit log for reproducibility / prompt governance.
+PROMPT_VERSION = "narrative-v1"
 
 SYSTEM_PROMPT = (
     "You are an AML/KYC investigation copilot assisting a human compliance analyst. "
@@ -234,6 +239,13 @@ def draft_narrative(
     claims = build_claims(evidence, typology_match)
     deterministic = _deterministic_draft(evidence, typology_match, regulatory, claims)
 
+    # Guardrail: screen the free-text evidence fields that flow into the prompt for
+    # prompt-injection / PII before the LLM sees them (OWASP LLM01/LLM06).
+    input_scan = guardrails.scan_prompt_inputs({
+        "alert_summary": str(evidence.get("case", {}).get("alert_summary", "")),
+        "source_of_funds": str(evidence.get("subject_kyc", {}).get("source_of_funds", "")),
+    })
+
     client = LLMClient(provider="offline") if force_offline else llm_client
 
     # Ask the LLM to polish. It receives ONLY the deterministic draft as the source
@@ -251,11 +263,26 @@ def draft_narrative(
         temperature=0.2, max_tokens=1800,
     )
 
+    # Guardrail: scan the model output for leaked PII (OWASP LLM02/LLM06) and redact.
+    output_scan = guardrails.scan_text(response.text, label="narrative")
+    narrative_text = guardrails.redact_pii(response.text) if output_scan["pii"] else response.text
+
     return {
-        "narrative": response.text,
+        "narrative": narrative_text,
+        "guardrails": {
+            "input": {
+                "prompt_injection_detected": input_scan["prompt_injection_detected"],
+                "pii_detected": input_scan["pii_detected"],
+                "injections": input_scan["injections"],
+            },
+            "output": {"pii_detected": bool(output_scan["pii"]),
+                       "pii_redacted": bool(output_scan["pii"])},
+            "owasp": guardrails.OWASP_MAP,
+        },
         "deterministic_draft": deterministic,
         "claims": claims,
         "citations": [t["transaction_id"] for t in evidence["transactions"]],
+        "prompt_version": PROMPT_VERSION,
         "llm_provider": response.provider_used,
         "llm_model": response.model,
         "llm_fallback_used": response.fallback_used,

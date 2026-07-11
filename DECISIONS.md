@@ -89,6 +89,37 @@ typologies + KYC, rather than shipping real data.
 **Why:** Real AML/KYC data can never be lawfully published; SAML-D itself is
 synthetic. **Upgrade path:** ingest the real IBM AMLworld/Elliptic benchmarks.
 
+### ADR-012 · Hybrid retrieval (BM25 + dense + rerank) over naive single-vector RAG
+**Decision:** The Regulatory-Context RAG uses BM25 + dense embeddings fused with
+Reciprocal Rank Fusion, then a reranker, over a ~112-chunk KB, and reports
+Recall@5 / MRR / nDCG@10.
+**Why:** Hybrid + rerank measurably beat single-vector RAG, and "RAG without recall
+metrics" is a portfolio red flag. Embeddings are pluggable (hashing → Gemini) so it
+stays $0 by default and upgrades to neural retrieval with one env var.
+**Trade-off:** BM25 + dense in-memory over ~100 chunks is perfect here; a large
+corpus would want a real vector DB (pgvector) + an approximate index.
+
+### ADR-013 · Lightweight, dependency-free guardrails (regex) over Presidio/LLM-Guard
+**Decision:** PII detection/redaction and prompt-injection screening are regex-based.
+**Why:** Presidio pulls spaCy models; heavy for a 512 MB free tier. Regex covers the
+common PII/injection cases at $0 and is fully testable. Presidio / LLM-Guard are the
+documented upgrade path.
+**Trade-off:** Regex misses obfuscated PII and novel injection phrasings.
+
+### ADR-014 · Graph analytics as evidence, matcher signals stay deterministic
+**Decision:** NetworkX computes real graph features (centrality, communities,
+cycles) for display/audit and the UI network viz; the Typology-Match signature is
+still the deterministic `signals.py` computation.
+**Why:** Keeps the reproducible eval stable while adding genuine graph analysis and
+a visual that makes the network structure legible. **Upgrade path:** a trained GNN
+detector feeding the ensemble (Tier 2).
+
+### ADR-015 · AMLworld ingestion is additive and opt-in
+**Decision:** Real-format (IBM AMLworld) ingestion adds `AML-####` cases only when
+`INCLUDE_AMLWORLD=1`; the default dataset stays the 28-typology synthetic set.
+**Why:** Demonstrates real-benchmark compatibility without destabilising the
+reproducible eval (AMLworld has no per-typology labels).
+
 ### ADR-011 · Render + Vercel free tiers
 **Decision:** Backend on Render (Docker), frontend on Vercel.
 **Why:** $0 hosting with a real live demo (live demos measurably increase callbacks).

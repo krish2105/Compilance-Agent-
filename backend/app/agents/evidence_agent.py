@@ -18,6 +18,7 @@ from __future__ import annotations
 from typing import Any, Dict, List
 
 from app.tools import db
+from app.tools.graph import graph_payload
 from app.tools.signals import compute_facts
 
 
@@ -63,9 +64,11 @@ def gather_evidence(case_id: str) -> Dict[str, Any]:
     history = db.get_account_history(subject, exclude_case_id=case_id, limit=20)
 
     facts = compute_facts(transactions, subject_kyc, counterparty_kyc)
+    graph = graph_payload(transactions, subject)
 
     return {
         "case_id": case_id,
+        "graph": graph,
         "case": case,
         "subject_account": subject,
         "focal_transaction_id": case.get("focal_transaction_id"),

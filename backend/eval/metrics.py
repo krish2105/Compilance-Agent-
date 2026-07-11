@@ -18,8 +18,9 @@ Metric taxonomy:
 """
 from __future__ import annotations
 
+import math
 from statistics import mean
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 
 def _safe_mean(xs: List[float]) -> float:
@@ -39,6 +40,43 @@ def retrieval_metrics(records: List[Dict[str, Any]]) -> Dict[str, float]:
         "context_precision@1": _safe_mean(prec),
         "context_recall": _safe_mean(rec),
         "groundtruth_recall@3": _safe_mean(gt_rec),
+    }
+
+
+def retrieval_quality_metrics(
+    queries: List[Tuple[List[str], set]], k: int = 5, ndcg_k: int = 10
+) -> Dict[str, float]:
+    """Information-retrieval metrics over a labelled query set.
+
+    `queries` is a list of (retrieved_chunk_ids, relevant_chunk_ids). Reports
+    Recall@k, MRR, and nDCG@k — the standard retrieval-quality metrics that a
+    credible RAG portfolio must show (not just "it works").
+    """
+    recalls, mrrs, ndcgs = [], [], []
+    for retrieved, relevant in queries:
+        if not relevant:
+            continue
+        topk = retrieved[:k]
+        hits = sum(1 for r in topk if r in relevant)
+        recalls.append(hits / min(k, len(relevant)))
+
+        rr = 0.0
+        for rank, cid in enumerate(retrieved, start=1):
+            if cid in relevant:
+                rr = 1.0 / rank
+                break
+        mrrs.append(rr)
+
+        dcg = sum((1.0 / math.log2(i + 2)) for i, cid in enumerate(retrieved[:ndcg_k])
+                  if cid in relevant)
+        ideal_hits = min(ndcg_k, len(relevant))
+        idcg = sum(1.0 / math.log2(i + 2) for i in range(ideal_hits))
+        ndcgs.append(dcg / idcg if idcg else 0.0)
+
+    return {
+        f"recall@{k}": _safe_mean(recalls),
+        "mrr": _safe_mean(mrrs),
+        f"ndcg@{ndcg_k}": _safe_mean(ndcgs),
     }
 
 
@@ -107,6 +145,8 @@ def all_metrics(records: List[Dict[str, Any]], catch_rate: float) -> Dict[str, f
 GATES = {
     "typology_top3": (">=", 1.0),
     "context_recall": (">=", 0.90),
+    "recall@5": (">=", 0.60),   # 5 relevant chunks/query incl. near-duplicate boilerplate
+    "ndcg@10": (">=", 0.75),
     "faithfulness": (">=", 0.95),
     "citation_validity": (">=", 1.0),
     "hallucination_rate": ("<=", 0.0),

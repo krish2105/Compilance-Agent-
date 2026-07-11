@@ -28,3 +28,21 @@ def health() -> dict:
             "software. Every output is a draft requiring human sign-off."
         ),
     }
+
+
+@router.get("/llm")
+def llm_diagnostic() -> dict:
+    """Live LLM check: runs a tiny generation and reports which provider answered
+    (and, on fallback, the exact error). Handy for diagnosing why Gemini isn't
+    being used. Public — returns no secrets."""
+    resp = llm_client.generate(
+        "Reply with the single word: OK.",
+        fallback_text="OK (offline)", task="classify", max_tokens=8, name="diagnostic",
+    )
+    return {
+        "provider_used": resp.provider_used,
+        "model": resp.model,
+        "fallback_used": resp.fallback_used,
+        "note": resp.note,
+        "text_preview": resp.text[:120],
+    }

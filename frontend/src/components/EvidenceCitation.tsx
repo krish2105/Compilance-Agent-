@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import type { InvestigationResult, Transaction } from "../lib/types";
 import { cx, fmtMoney, fmtNum } from "../lib/utils";
+import CaseGraph from "./CaseGraph";
 
 /** Displays the exact evidence (transactions, KYC, computed facts) behind the case. */
 export default function EvidenceCitation({ result }: { result: InvestigationResult }) {
@@ -30,6 +31,11 @@ export default function EvidenceCitation({ result }: { result: InvestigationResu
 
   return (
     <div className="space-y-4">
+      {/* Transaction network graph */}
+      {evidence.graph && evidence.graph.nodes.length > 0 && (
+        <CaseGraph graph={evidence.graph} />
+      )}
+
       {/* KYC profile */}
       <div className="glass p-4">
         <div className="mb-3 flex items-center gap-2">

@@ -83,6 +83,24 @@ def _adversarial_catch_rate(case_ids: List[str]) -> float:
     return flagged / len(case_ids) if case_ids else 1.0
 
 
+def _retrieval_quality() -> Dict[str, float]:
+    """Labelled retrieval eval: for each suspicious typology, query the KB and check
+    that the typology's own chunks are retrieved. Reports Recall@5 / MRR / nDCG@10."""
+    from app.agents.regulatory_context_agent import _get_retriever
+    from app.tools.typologies import SUSPICIOUS_TYPOLOGIES
+
+    retriever = _get_retriever()
+    all_ids = {c.id: c.typology_key for c in retriever.chunks}
+    queries = []
+    for t in SUSPICIOUS_TYPOLOGIES:
+        query = f"{t.label} {t.definition} red flags enhanced due diligence"
+        retrieved = retriever.retrieve(query, k=10, reranker="none")
+        retrieved_ids = [r["chunk_id"] for r in retrieved]
+        relevant = {cid for cid, key in all_ids.items() if key == t.key}
+        queries.append((retrieved_ids, relevant))
+    return M.retrieval_quality_metrics(queries, k=5, ndcg_k=10)
+
+
 def run() -> Dict[str, Any]:
     audit.init_db()
     case_ids = [c["case_id"] for c in db.list_cases()]
@@ -90,8 +108,9 @@ def run() -> Dict[str, Any]:
     bench = [r for r in records if r["gt_label"] in BENCHMARK_TYPOLOGIES]
 
     catch_rate = _adversarial_catch_rate([r["case_id"] for r in bench])
-    overall = M.all_metrics(records, catch_rate)
-    benchmark = M.all_metrics(bench, catch_rate)
+    rq = _retrieval_quality()
+    overall = {**M.all_metrics(records, catch_rate), **rq}
+    benchmark = {**M.all_metrics(bench, catch_rate), **rq}
     gates = M.check_gates(overall)
     passed_all = all(g["passed"] for g in gates)
 
@@ -147,6 +166,9 @@ def _write_report(summary: Dict[str, Any], records: List[Dict[str, Any]]) -> Non
 {row("Context precision@1 (RAG)", "context_precision@1")}
 {row("Context recall (RAG)", "context_recall")}
 {row("Ground-truth recall@3 (RAG)", "groundtruth_recall@3")}
+{row("Retrieval Recall@5 (KB)", "recall@5")}
+{row("Retrieval MRR (KB)", "mrr")}
+{row("Retrieval nDCG@10 (KB)", "ndcg@10")}
 {row("Faithfulness (claims grounded)", "faithfulness")}
 {row("Citation validity", "citation_validity")}
 {row("Hallucination rate", "hallucination_rate")}

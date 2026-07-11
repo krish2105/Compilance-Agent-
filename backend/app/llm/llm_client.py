@@ -189,25 +189,38 @@ class LLMClient:
             import google.generativeai as genai
         except ImportError as exc:  # pragma: no cover
             raise LLMProviderError(f"google-generativeai not installed: {exc}")
-        try:
-            genai.configure(api_key=settings.gemini_api_key)
-            gm = genai.GenerativeModel(model, system_instruction=system or None)
-            resp = gm.generate_content(
-                prompt,
-                generation_config={"temperature": temperature,
-                                   "max_output_tokens": max_tokens},
-            )
-            text = (getattr(resp, "text", None) or "").strip()
-            if not text:
-                raise LLMProviderError("empty response from Gemini")
-            in_tok = out_tok = None
-            um = getattr(resp, "usage_metadata", None)
-            if um is not None:
-                in_tok = getattr(um, "prompt_token_count", None)
-                out_tok = getattr(um, "candidates_token_count", None)
-            return text, in_tok, out_tok
-        except Exception as exc:  # noqa: BLE001
-            raise LLMProviderError(str(exc)) from exc
+
+        genai.configure(api_key=settings.gemini_api_key)
+        # Try the configured model, then well-known alternates — a key/SDK combo may
+        # not have a given model, and we'd rather auto-recover than fall to offline.
+        candidates = [model, "gemini-2.0-flash", "gemini-1.5-flash", "gemini-flash-latest"]
+        seen, tried = set(), []
+        errors = []
+        for m in candidates:
+            if not m or m in seen:
+                continue
+            seen.add(m)
+            tried.append(m)
+            try:
+                gm = genai.GenerativeModel(m, system_instruction=system or None)
+                resp = gm.generate_content(
+                    prompt,
+                    generation_config={"temperature": temperature,
+                                       "max_output_tokens": max_tokens},
+                )
+                text = (getattr(resp, "text", None) or "").strip()
+                if not text:
+                    raise LLMProviderError("empty response")
+                in_tok = out_tok = None
+                um = getattr(resp, "usage_metadata", None)
+                if um is not None:
+                    in_tok = getattr(um, "prompt_token_count", None)
+                    out_tok = getattr(um, "candidates_token_count", None)
+                return text, in_tok, out_tok
+            except Exception as exc:  # noqa: BLE001
+                errors.append(f"{m}: {exc}")
+                continue
+        raise LLMProviderError("all Gemini models failed → " + " | ".join(errors))
 
     def _generate_groq(
         self, prompt, system, temperature, max_tokens, model
