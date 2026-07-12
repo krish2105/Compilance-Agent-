@@ -52,7 +52,14 @@ test("command palette opens and navigates (desktop)", async ({ page }, testInfo)
 
 test("language toggle switches the document to RTL Arabic", async ({ page }) => {
   await enterDemo(page);
-  await page.getByRole("button", { name: /switch language/i }).click();
+  // Desktop: header button. Mobile: it lives in the account menu.
+  const headerLang = page.getByRole("button", { name: /switch language/i });
+  if (await headerLang.isVisible().catch(() => false)) {
+    await headerLang.click();
+  } else {
+    await page.getByRole("button", { name: "Account" }).click();
+    await page.getByRole("button", { name: /EN \/ عرب/ }).click();
+  }
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   await expect(page.locator("html")).toHaveAttribute("lang", "ar");
 });

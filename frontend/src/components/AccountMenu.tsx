@@ -1,12 +1,15 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { KeyRound, Loader2, ShieldCheck, UserCircle2, X } from "lucide-react";
+import { KeyRound, Languages, Loader2, LogOut, ShieldCheck, UserCircle2, X } from "lucide-react";
 import { useState } from "react";
 import { changePassword } from "../lib/api";
+import { useI18n, useT } from "../lib/i18n";
 import { useUi } from "../lib/store";
 
-/** Header account chip → click opens a change-password modal (JWT users only). */
+/** Header account chip → account modal: password change + language + sign out. */
 export default function AccountMenu() {
-  const { user, demoMode, setToken } = useUi();
+  const t = useT();
+  const toggleLang = useI18n((s) => s.toggleLang);
+  const { user, demoMode, setToken, signOut } = useUi();
   const [open, setOpen] = useState(false);
   if (!user) return null;
 
@@ -70,6 +73,22 @@ export default function AccountMenu() {
               ) : (
                 <ChangePasswordForm onDone={(tok) => { setToken(tok); setOpen(false); }} />
               )}
+
+              {/* Quick actions (also reachable from the header on desktop). */}
+              <div className="mt-4 flex gap-2 border-t border-line pt-4">
+                <button
+                  onClick={() => { toggleLang(); }}
+                  className="btn-ghost flex-1 justify-center text-xs"
+                >
+                  <Languages size={14} /> EN / عربى
+                </button>
+                <button
+                  onClick={() => { signOut(); setOpen(false); }}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-line px-3 py-2 text-xs font-semibold text-danger hover:bg-danger/10"
+                >
+                  <LogOut size={14} /> {t("action.signout")}
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}

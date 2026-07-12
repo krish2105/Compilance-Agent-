@@ -53,14 +53,14 @@ export default function App() {
           >
             <ShieldHalf size={20} />
           </motion.div>
-          <div className="min-w-0">
-            <h1 className="flex items-center gap-2 text-sm font-extrabold tracking-tight text-ink sm:text-base">
+          <div className="min-w-0 flex-1">
+            <h1 className="flex items-center gap-2 truncate text-sm font-extrabold tracking-tight text-ink sm:text-base">
               ComplianceAgent
-              <span className="chip hidden bg-brand-soft text-brand xs:inline-flex sm:inline-flex">
+              <span className="chip hidden shrink-0 bg-brand-soft text-brand lg:inline-flex">
                 {t("app.tagline")}
               </span>
             </h1>
-            <p className="hidden text-[11px] text-ink-faint md:block">{t("app.subtitle")}</p>
+            <p className="hidden text-[11px] text-ink-faint lg:block">{t("app.subtitle")}</p>
           </div>
 
           {/* Desktop nav */}
@@ -83,32 +83,40 @@ export default function App() {
             ))}
           </nav>
 
-          <div className="ms-auto flex items-center gap-1.5 sm:gap-2.5">
-            {/* Command palette trigger */}
+          <div className="ms-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
+            {/* Command palette trigger (desktop) */}
             <button
               onClick={openCmd}
               aria-label="Open command palette"
-              className="hidden h-9 items-center gap-1.5 rounded-full border border-line bg-surface-raised/70 px-3 text-xs text-ink-faint hover:text-ink sm:flex"
+              className="hidden h-9 items-center gap-1.5 rounded-full border border-line bg-surface-raised/70 px-3 text-xs text-ink-faint hover:text-ink lg:flex"
             >
               <Command size={13} /> <kbd className="font-sans">⌘K</kbd>
             </button>
+            {/* API status — icon-only chip on mobile, full text on desktop */}
             <span
-              className={cx("chip", online ? "bg-ok/15 text-ok" : "bg-danger/15 text-danger")}
-              title={online ? "Backend connected" : "Backend unreachable"}
+              className={cx(
+                "flex h-9 items-center gap-1.5 rounded-full px-2.5",
+                online ? "bg-ok/15 text-ok" : "bg-danger/15 text-danger",
+              )}
+              title={online ? t("status.connected") : t("status.offline")}
+              aria-label={online ? t("status.connected") : t("status.offline")}
             >
-              <Activity size={13} />
-              <span className="hidden xs:inline">{online ? t("status.connected") : t("status.offline")}</span>
+              <Activity size={14} />
+              <span className="hidden text-xs font-semibold lg:inline">
+                {online ? t("status.connected") : t("status.offline")}
+              </span>
             </span>
             {online && (
-              <span className="chip hidden bg-brand-soft text-brand lg:inline-flex" title="Active LLM provider">
+              <span className="chip hidden bg-brand-soft text-brand xl:inline-flex" title="Active LLM provider">
                 LLM · {provider}
               </span>
             )}
+            {/* Language + sign out live in the header on desktop, in the account menu on mobile */}
             <button
               onClick={toggleLang}
               aria-label="Switch language"
               title="English / عربى"
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-surface-raised/70 text-ink-muted hover:text-ink"
+              className="hidden h-9 w-9 items-center justify-center rounded-full border border-line bg-surface-raised/70 text-ink-muted hover:text-ink md:flex"
             >
               <Languages size={15} />
               <span className="sr-only">{lang}</span>
@@ -118,7 +126,7 @@ export default function App() {
               onClick={signOut}
               aria-label={t("action.signout")}
               title={t("action.signout")}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-surface-raised/70 text-ink-muted hover:border-danger/50 hover:text-danger"
+              className="hidden h-9 w-9 items-center justify-center rounded-full border border-line bg-surface-raised/70 text-ink-muted hover:border-danger/50 hover:text-danger md:flex"
             >
               <LogOut size={15} />
             </button>
