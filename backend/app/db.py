@@ -69,6 +69,10 @@ def _migrate_sqlite() -> None:
                     con.execute(text("ALTER TABLE users ADD COLUMN tenant_id INTEGER DEFAULT 1"))
                 if "token_version" not in cols:
                     con.execute(text("ALTER TABLE users ADD COLUMN token_version INTEGER DEFAULT 0"))
+                if "totp_secret" not in cols:
+                    con.execute(text("ALTER TABLE users ADD COLUMN totp_secret VARCHAR(64) DEFAULT ''"))
+                if "mfa_enabled" not in cols:
+                    con.execute(text("ALTER TABLE users ADD COLUMN mfa_enabled BOOLEAN DEFAULT 0"))
         if "tenants" in insp.get_table_names():
             tcols = {c["name"] for c in insp.get_columns("tenants")}
             if "plan" not in tcols:

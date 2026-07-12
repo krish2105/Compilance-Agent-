@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Check, CreditCard, Loader2, Pencil, ShieldCheck } from "lucide-react";
 import { useState } from "react";
-import { changePlan, getBilling, renameOrg, type BillingInfo } from "../lib/api";
+import { changePlan, getBilling, getObservability, renameOrg, type BillingInfo } from "../lib/api";
 import { useUi } from "../lib/store";
 import { cx } from "../lib/utils";
 
@@ -46,6 +46,8 @@ export default function BillingPanel() {
       </div>
 
       <OrgNameCard />
+
+      <ObservabilityCard />
 
       {/* Usage */}
       <div className="glass p-5">
@@ -106,6 +108,39 @@ export default function BillingPanel() {
         Demo billing — switching plans is instant and free. Wiring real Stripe checkout only needs a
         payment webhook that sets the plan.
       </p>
+    </div>
+  );
+}
+
+function ObservabilityCard() {
+  const { data } = useQuery({ queryKey: ["observability"], queryFn: getObservability });
+  if (!data) return null;
+  const d = data as Record<string, any>;
+  const decisions = Object.entries(d.reviews?.by_decision ?? {});
+  const stat = (label: string, value: string | number) => (
+    <div className="rounded-xl border border-line bg-surface-raised/50 p-3">
+      <p className="font-mono text-xl font-extrabold text-ink">{value}</p>
+      <p className="label mt-0.5">{label}</p>
+    </div>
+  );
+  return (
+    <div className="glass p-5">
+      <h3 className="mb-3 text-sm font-bold text-ink">Organization activity</h3>
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+        {stat("Members", d.members)}
+        {stat("2FA adoption", `${d.mfa_adoption?.pct ?? 0}%`)}
+        {stat("Uploaded cases", d.uploaded_cases)}
+        {stat("Reviews", d.reviews?.total ?? 0)}
+      </div>
+      {decisions.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+          {decisions.map(([k, v]) => (
+            <span key={k} className="chip bg-brand-soft text-brand">
+              {k}: {v as number}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

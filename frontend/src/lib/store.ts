@@ -7,6 +7,7 @@ export interface AuthUser {
   username: string;
   role: Role;
   tenant?: { slug: string; name: string };
+  mfa_enabled?: boolean;
 }
 
 interface UiState {

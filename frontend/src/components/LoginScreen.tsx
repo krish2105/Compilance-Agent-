@@ -28,6 +28,8 @@ export default function LoginScreen() {
   const [newPass, setNewPass] = useState("");
   const [email, setEmail] = useState("");
 
+  const [mfaCode, setMfaCode] = useState("");
+  const [needsMfa, setNeedsMfa] = useState(false);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -36,12 +38,25 @@ export default function LoginScreen() {
     setLoading(true);
     setErr(null);
     try {
-      const { token, user, tenant } = await login(username, password, org || "demo");
+      const { token, user, tenant } = await login(
+        username, password, org || "demo", needsMfa ? mfaCode : undefined,
+      );
       signIn(token, { ...user, tenant });
-    } catch {
+    } catch (e) {
+      const msg = (e as Error).message || "";
+      // Two-factor prompt.
+      if (/mfa code required/i.test(msg)) {
+        setNeedsMfa(true);
+        setErr("Enter the 6-digit code from your authenticator app.");
+        return;
+      }
+      if (/invalid mfa code/i.test(msg)) {
+        setErr("Invalid code — try the current 6 digits from your app.");
+        return;
+      }
       // Graceful fallback for the demo org if the backend is waking / a step behind.
       const demo = DEMO.find((d) => d.u === username && d.p === password);
-      if ((org === "demo" || !org) && demo) {
+      if ((org === "demo" || !org) && demo && !needsMfa) {
         enterDemoAs(demo.u, demo.role);
         return;
       }
@@ -137,6 +152,20 @@ export default function LoginScreen() {
                 <label className="label mb-1 block">Password</label>
                 <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className={inputCls} />
               </div>
+              {needsMfa && (
+                <div>
+                  <label className="label mb-1 block">2FA code</label>
+                  <input
+                    value={mfaCode}
+                    onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    placeholder="123456"
+                    className={`${inputCls} text-center font-mono tracking-[0.3em]`}
+                    autoFocus
+                  />
+                </div>
+              )}
               {err && <p className="text-xs text-danger">{err}</p>}
               <button type="submit" disabled={loading} className="btn-brand w-full">
                 {loading ? <Loader2 size={15} className="animate-spin" /> : <LogIn size={15} />}

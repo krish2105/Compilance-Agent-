@@ -19,6 +19,7 @@ class LoginRequest(BaseModel):
     username: str
     password: str
     org: str = DEMO_TENANT_SLUG  # tenant slug; defaults to the demo org
+    mfa_code: Optional[str] = None  # required when the user has 2FA enabled
 
 
 class RegisterRequest(BaseModel):
@@ -67,9 +68,71 @@ def login(req: LoginRequest, db: Session = Depends(get_db)) -> dict:
     if not user or not user.active or not auth.verify_password(req.password, user.hashed_password):
         auth.record_login_failure(throttle_key)
         raise HTTPException(status_code=401, detail="Invalid username or password.")
+    # Second factor, if the user enabled 2FA.
+    if user.mfa_enabled:
+        if not req.mfa_code:
+            raise HTTPException(status_code=401, detail="MFA code required.")
+        if not auth.verify_totp(user.totp_secret, req.mfa_code):
+            auth.record_login_failure(throttle_key)
+            raise HTTPException(status_code=401, detail="Invalid MFA code.")
     auth.clear_login_failures(throttle_key)
     return {"token": auth.create_token(user, tenant.slug),
             "user": user.to_public(), "tenant": tenant.to_public()}
+
+
+class MfaCodeRequest(BaseModel):
+    code: str
+
+
+def _current_user(principal: auth.Principal, db: Session) -> User:
+    tenant = _tenant_for(principal, db)
+    user = db.execute(
+        select(User).where(User.username == principal.username, User.tenant_id == tenant.id)
+    ).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found.")
+    return user, tenant
+
+
+@router.post("/mfa/setup")
+def mfa_setup(principal: auth.Principal = Depends(auth.get_current_principal),
+              db: Session = Depends(get_db)) -> dict:
+    """Begin 2FA enrolment: generate a secret + otpauth URI to add to an authenticator app."""
+    if principal.via != "jwt":
+        raise HTTPException(status_code=403, detail="Demo/API-key sessions can't enable 2FA.")
+    user, tenant = _current_user(principal, db)
+    secret = auth.generate_totp_secret()
+    user.totp_secret = secret  # stored but not active until a code is verified
+    db.commit()
+    return {"secret": secret,
+            "otpauth_uri": auth.totp_provisioning_uri(secret, user.username, tenant.slug)}
+
+
+@router.post("/mfa/enable")
+def mfa_enable(req: MfaCodeRequest,
+               principal: auth.Principal = Depends(auth.get_current_principal),
+               db: Session = Depends(get_db)) -> dict:
+    """Confirm 2FA: verify a code against the pending secret, then enable."""
+    user, _ = _current_user(principal, db)
+    if not user.totp_secret or not auth.verify_totp(user.totp_secret, req.code):
+        raise HTTPException(status_code=422, detail="Invalid code — check your authenticator app.")
+    user.mfa_enabled = True
+    db.commit()
+    return {"ok": True, "mfa_enabled": True}
+
+
+@router.post("/mfa/disable")
+def mfa_disable(req: MfaCodeRequest,
+                principal: auth.Principal = Depends(auth.get_current_principal),
+                db: Session = Depends(get_db)) -> dict:
+    """Turn 2FA off (requires a valid current code)."""
+    user, _ = _current_user(principal, db)
+    if user.mfa_enabled and not auth.verify_totp(user.totp_secret, req.code):
+        raise HTTPException(status_code=422, detail="Invalid code.")
+    user.mfa_enabled = False
+    user.totp_secret = ""
+    db.commit()
+    return {"ok": True, "mfa_enabled": False}
 
 
 @router.post("/register-org")

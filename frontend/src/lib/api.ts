@@ -40,12 +40,33 @@ export async function login(
   username: string,
   password: string,
   org = "demo",
+  mfaCode?: string,
 ): Promise<AuthResponse> {
   const res = await fetch(`${API_URL}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password, org }),
+    body: JSON.stringify({ username, password, org, mfa_code: mfaCode }),
   });
+  return handle(res);
+}
+
+/** 2FA (TOTP) — begin enrolment: returns the secret + otpauth URI for an authenticator app. */
+export async function mfaSetup(): Promise<{ secret: string; otpauth_uri: string }> {
+  const res = await fetch(`${API_URL}/api/auth/mfa/setup`, { method: "POST", headers: headers() });
+  return handle(res);
+}
+export async function mfaEnable(code: string): Promise<{ ok: boolean; mfa_enabled: boolean }> {
+  const res = await fetch(`${API_URL}/api/auth/mfa/enable`, { method: "POST", headers: headers(true), body: JSON.stringify({ code }) });
+  return handle(res);
+}
+export async function mfaDisable(code: string): Promise<{ ok: boolean; mfa_enabled: boolean }> {
+  const res = await fetch(`${API_URL}/api/auth/mfa/disable`, { method: "POST", headers: headers(true), body: JSON.stringify({ code }) });
+  return handle(res);
+}
+
+/** Per-tenant observability (admin): members, MFA adoption, reviews, usage. */
+export async function getObservability(): Promise<Record<string, any>> {
+  const res = await fetch(`${API_URL}/api/admin/observability`, { headers: headers() });
   return handle(res);
 }
 

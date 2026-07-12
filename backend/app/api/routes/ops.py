@@ -43,6 +43,50 @@ def dashboard(principal: auth.Principal = Depends(auth.get_current_principal)) -
     return analytics.compute_dashboard(principal.tenant)
 
 
+@router.get("/api/admin/observability")
+def observability(principal: auth.Principal = Depends(auth.require_role("admin"))) -> dict:
+    """Per-tenant activity metrics for the caller's organization (usage & disposition mix)."""
+    from collections import Counter
+
+    from sqlalchemy import func, select
+
+    from app.db import SessionLocal
+    from app.models import CaseReview, Tenant, TenantCase, User
+    from app.tools import plans
+
+    db = SessionLocal()
+    try:
+        t = db.execute(select(Tenant).where(Tenant.slug == principal.tenant)).scalars().first()
+        members = db.execute(
+            select(func.count(User.id)).where(User.tenant_id == t.id)
+        ).scalar_one() if t else 0
+        mfa_on = db.execute(
+            select(func.count(User.id)).where(User.tenant_id == t.id, User.mfa_enabled.is_(True))
+        ).scalar_one() if t else 0
+        uploaded = db.execute(
+            select(func.count(TenantCase.id)).where(TenantCase.tenant == principal.tenant)
+        ).scalar_one()
+        reviews = db.execute(
+            select(CaseReview.decision).where(CaseReview.tenant == principal.tenant)
+        ).scalars().all()
+    finally:
+        db.close()
+
+    dispositions = dict(Counter(reviews))
+    usage = plans.usage(principal.tenant)
+    return {
+        "tenant": principal.tenant,
+        "members": members,
+        "mfa_adoption": {"enabled": mfa_on, "total": members,
+                         "pct": round(mfa_on / members * 100) if members else 0},
+        "uploaded_cases": uploaded,
+        "reviews": {"total": len(reviews), "by_decision": dispositions},
+        "plan": usage["plan"],
+        "limits": usage["limits"],
+        "usage": usage["usage"],
+    }
+
+
 @router.get("/api/admin/sanctions")
 def sanctions_status(_: auth.Principal = Depends(auth.require_role("admin"))) -> dict:
     """Sanctions watchlist status: live OFAC/UN counts, source, freshness."""

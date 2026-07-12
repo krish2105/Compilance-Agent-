@@ -162,6 +162,29 @@
         }
       }
     },
+    "/api/admin/observability": {
+      "get": {
+        "tags": [
+          "ops"
+        ],
+        "summary": "Observability",
+        "description": "Per-tenant activity metrics for the caller's organization (usage & disposition mix).",
+        "operationId": "observability_api_admin_observability_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "title": "Response Observability Api Admin Observability Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/sanctions": {
       "get": {
         "tags": [
@@ -256,6 +279,115 @@
                 "schema": {
                   "type": "object",
                   "title": "Response Login Api Auth Login Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/mfa/setup": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Mfa Setup",
+        "description": "Begin 2FA enrolment: generate a secret + otpauth URI to add to an authenticator app.",
+        "operationId": "mfa_setup_api_auth_mfa_setup_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "title": "Response Mfa Setup Api Auth Mfa Setup Post"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/mfa/enable": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Mfa Enable",
+        "description": "Confirm 2FA: verify a code against the pending secret, then enable.",
+        "operationId": "mfa_enable_api_auth_mfa_enable_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaCodeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "title": "Response Mfa Enable Api Auth Mfa Enable Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/mfa/disable": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Mfa Disable",
+        "description": "Turn 2FA off (requires a valid current code).",
+        "operationId": "mfa_disable_api_auth_mfa_disable_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaCodeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "title": "Response Mfa Disable Api Auth Mfa Disable Post"
                 }
               }
             }
@@ -1282,6 +1414,29 @@
         }
       }
     },
+    "/api/ready": {
+      "get": {
+        "tags": [
+          "ops"
+        ],
+        "summary": "Ready",
+        "description": "Readiness probe for load balancers / orchestrators (K8s, Render, Fly).\nReports whether shared state is distributed (safe to run multiple instances).",
+        "operationId": "ready_api_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "title": "Response Ready Api Ready Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/": {
       "get": {
         "tags": [
@@ -1416,6 +1571,17 @@
             "type": "string",
             "title": "Org",
             "default": "demo"
+          },
+          "mfa_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mfa Code"
           }
         },
         "type": "object",
@@ -1424,6 +1590,19 @@
           "password"
         ],
         "title": "LoginRequest"
+      },
+      "MfaCodeRequest": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "title": "MfaCodeRequest"
       },
       "OrgSettingsRequest": {
         "properties": {

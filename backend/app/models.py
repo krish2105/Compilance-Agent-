@@ -62,11 +62,15 @@ class User(Base):
     # Bumped on password change / admin reset — invalidates all previously issued
     # JWTs for this user (session revocation).
     token_version: Mapped[int] = mapped_column(Integer, default=0)
+    # 2FA (TOTP). Secret is set at setup; mfa_enabled flips true after a verified code.
+    totp_secret: Mapped[str] = mapped_column(String(64), default="")
+    mfa_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
 
     def to_public(self) -> dict:
         return {"username": self.username, "email": self.email,
-                "full_name": self.full_name, "role": self.role, "active": self.active}
+                "full_name": self.full_name, "role": self.role, "active": self.active,
+                "mfa_enabled": self.mfa_enabled}
 
 
 class CaseAssignment(Base):

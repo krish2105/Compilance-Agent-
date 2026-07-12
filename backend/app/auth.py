@@ -56,6 +56,43 @@ def create_token(user: User, tenant_slug: str) -> str:
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
 
 
+# --------------------------------------------------------------------- 2FA (TOTP, RFC 6238)
+def generate_totp_secret() -> str:
+    import base64
+    import secrets
+    return base64.b32encode(secrets.token_bytes(20)).decode("ascii").rstrip("=")
+
+
+def _hotp(secret_b32: str, counter: int) -> str:
+    import base64
+    import hashlib
+    import hmac
+    import struct
+    pad = "=" * (-len(secret_b32) % 8)
+    key = base64.b32decode(secret_b32.upper() + pad)
+    digest = hmac.new(key, struct.pack(">Q", counter), hashlib.sha1).digest()
+    offset = digest[-1] & 0x0F
+    code = (struct.unpack(">I", digest[offset:offset + 4])[0] & 0x7FFFFFFF) % 1_000_000
+    return f"{code:06d}"
+
+
+def verify_totp(secret_b32: str, code: str, window: int = 1) -> bool:
+    """Verify a 6-digit TOTP code, tolerating ±`window` 30s steps for clock drift."""
+    import time
+    if not secret_b32 or not code:
+        return False
+    code = str(code).strip().zfill(6)
+    step = int(time.time()) // 30
+    return any(_hotp(secret_b32, step + i) == code for i in range(-window, window + 1))
+
+
+def totp_provisioning_uri(secret_b32: str, username: str, org: str) -> str:
+    """otpauth:// URI for authenticator apps (Google Authenticator, Authy, 1Password…)."""
+    from urllib.parse import quote
+    label = quote(f"ComplianceAgent ({org}):{username}")
+    return f"otpauth://totp/{label}?secret={secret_b32}&issuer=ComplianceAgent"
+
+
 # --------------------------------------------------------------------- password policy
 def password_strength_error(password: str) -> Optional[str]:
     """Return a human message if the password is too weak, else None."""
