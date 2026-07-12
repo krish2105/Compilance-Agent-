@@ -351,6 +351,27 @@ Each **organization is an isolated workspace** ([`app/models.py`](backend/app/mo
 - **Per-tenant users** — usernames are unique *within* an org; admins manage only their
   own org's users. The bundled **`demo`** tenant keeps the public demo working unchanged.
 
+## Durable data (Postgres + Redis)
+
+All persistent state — tenants, users, **case reviews and the full audit trail** —
+lives in a single **SQLAlchemy operational store** ([`app/models.py`](backend/app/models.py),
+[`app/tools/audit.py`](backend/app/tools/audit.py)). The cache layer
+([`app/tools/cache.py`](backend/app/tools/cache.py)) is pluggable too.
+
+- **$0 default:** SQLite file + in-process cache — great for local/demo, but **ephemeral**
+  on a free-tier container (resets on redeploy).
+- **Durable mode (one step, still free):** set two env vars and everything **survives restarts**,
+  no code change. `GET /api/health` reports `"durable": true` and `"cache_backend": "redis"`.
+
+  | Env var | Free provider | Example |
+  |---|---|---|
+  | `DATABASE_URL` | [Neon](https://neon.tech) / [Supabase](https://supabase.com) Postgres | `postgresql://user:pass@ep-xxx.neon.tech/db` |
+  | `REDIS_URL` | [Upstash](https://upstash.com) Redis | `rediss://default:pass@xxx.upstash.io:6379` |
+
+  On Render: **dashboard → Environment → Add** `DATABASE_URL` and `REDIS_URL` (both are
+  already declared `sync:false` in [`render.yaml`](render.yaml)), then redeploy. Tables are
+  auto-created on boot.
+
 ## Auth & RBAC (operational store)
 
 Real multi-user access control ([`app/auth.py`](backend/app/auth.py), [`app/models.py`](backend/app/models.py)):

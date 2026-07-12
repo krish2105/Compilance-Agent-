@@ -3,7 +3,16 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -64,3 +73,41 @@ class CaseAssignment(Base):
     assigned_to: Mapped[str] = mapped_column(String(64))
     assigned_by: Mapped[str] = mapped_column(String(64))
     assigned_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+
+
+class AuditEvent(Base):
+    """Append-only audit stream (agent steps + human actions). Lives in the durable
+    operational store so the trail survives restarts on Postgres. `ts` is an ISO
+    string for exact API compatibility with existing consumers."""
+
+    __tablename__ = "audit_events"
+    __table_args__ = (Index("ix_audit_case", "case_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    case_id: Mapped[str] = mapped_column(String(48))
+    tenant: Mapped[str] = mapped_column(String(48), default=DEMO_TENANT_SLUG)
+    ts: Mapped[str] = mapped_column(String(32))
+    actor: Mapped[str] = mapped_column(String(128))
+    actor_type: Mapped[str] = mapped_column(String(16))
+    action: Mapped[str] = mapped_column(String(64))
+    summary: Mapped[str] = mapped_column(Text, default="", nullable=True)
+    detail_json: Mapped[str] = mapped_column(Text, default="{}")
+    llm_provider: Mapped[str] = mapped_column(String(32), default="", nullable=True)
+
+
+class CaseReview(Base):
+    """The human review decision per case, per tenant (the enforced approval gate).
+    Durable + tenant-scoped."""
+
+    __tablename__ = "case_reviews"
+    __table_args__ = (Index("ix_review_tenant_case", "tenant", "case_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    case_id: Mapped[str] = mapped_column(String(48))
+    tenant: Mapped[str] = mapped_column(String(48), default=DEMO_TENANT_SLUG)
+    ts: Mapped[str] = mapped_column(String(32))
+    decision: Mapped[str] = mapped_column(String(16))
+    reviewer: Mapped[str] = mapped_column(String(128))
+    notes: Mapped[str] = mapped_column(Text, default="", nullable=True)
+    edited_narrative: Mapped[str] = mapped_column(Text, default="", nullable=True)
+    status: Mapped[str] = mapped_column(String(48))

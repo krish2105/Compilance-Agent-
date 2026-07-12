@@ -28,6 +28,15 @@ services:
         value: "compliance-demo-2026"   # demo-only public gate over synthetic data (safe to publish)
       - key: CORS_ORIGINS
         value: "*"        # header-based auth (no cookies), so wildcard CORS is safe here
+      # --- Durable data (optional but recommended for real use) ---
+      # Without these the app runs at $0 on an EPHEMERAL SQLite file + in-memory cache
+      # (data resets on each restart/redeploy). Set them in the Render dashboard to a
+      # FREE managed Postgres (e.g. Neon / Supabase) and Redis (e.g. Upstash) and all
+      # tenants, users, reviews and the audit trail SURVIVE restarts. No code change.
+      - key: DATABASE_URL
+        sync: false       # e.g. postgresql://user:pass@ep-xxx.neon.tech/db  (Neon free)
+      - key: REDIS_URL
+        sync: false       # e.g. rediss://default:pass@xxx.upstash.io:6379   (Upstash free)
       - key: GEMINI_API_KEY
         sync: false       # set in the Render dashboard to activate live LLM narratives
       - key: GROQ_API_KEY

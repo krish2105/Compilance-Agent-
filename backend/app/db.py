@@ -72,4 +72,9 @@ def _migrate_sqlite() -> None:
 
 
 def backend_info() -> dict:
-    return {"operational_db": "postgresql" if not _is_sqlite else "sqlite"}
+    return {
+        "operational_db": "postgresql" if not _is_sqlite else "sqlite",
+        # Postgres persists across restarts; the local SQLite file is ephemeral on
+        # a free-tier container (rebuilt on each deploy).
+        "durable": not _is_sqlite,
+    }

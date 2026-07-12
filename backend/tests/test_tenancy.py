@@ -12,11 +12,14 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app import auth  # noqa: E402
-from app.db import SessionLocal, init_models  # noqa: E402
+from app.db import Base, SessionLocal, engine, init_models  # noqa: E402
 from app.tools import analytics, audit  # noqa: E402
 
 
 def _setup():
+    # Reset the operational store to a clean schema so these tests are deterministic
+    # regardless of any state left by a prior run (CI already starts fresh).
+    Base.metadata.drop_all(bind=engine)
     init_models()
     auth.seed_default_users()
     audit.init_db()
@@ -61,6 +64,31 @@ def test_review_isolation_between_tenants():
     assert audit.get_latest_review(case_id, "tenant-a")["decision"] == "APPROVED"
     assert audit.get_latest_review(case_id, "tenant-b") is None
     assert audit.get_latest_review(case_id, "demo") is None
+
+
+def test_reviews_persist_in_the_durable_operational_store():
+    """A review must land in the SQLAlchemy operational store (Postgres-durable),
+    not an ephemeral side file — this is what lets tenant data survive restarts."""
+    from sqlalchemy import select
+
+    from app.models import CaseReview
+
+    _setup()
+    audit.record_review("CASE-0003", "REJECTED", "carol (mlro)", tenant="durable-co",
+                        notes="not suspicious")
+    # Read it back through a brand-new session (simulates a fresh process / restart).
+    db = SessionLocal()
+    try:
+        row = db.execute(
+            select(CaseReview).where(CaseReview.case_id == "CASE-0003",
+                                     CaseReview.tenant == "durable-co")
+        ).scalars().first()
+        assert row is not None
+        assert row.decision == "REJECTED"
+        assert row.status == "REJECTED_CLOSED"
+        assert row.reviewer == "carol (mlro)"
+    finally:
+        db.close()
 
 
 def test_dashboard_dispositions_are_per_tenant():

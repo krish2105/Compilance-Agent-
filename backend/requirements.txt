@@ -19,12 +19,16 @@ numpy==1.26.4
 networkx==3.2.1
 rank-bm25==0.2.2
 
-# Operational store + auth (Postgres-ready via DATABASE_URL; SQLite by default)
+# Operational store + auth (durable: Postgres via DATABASE_URL; SQLite fallback).
+# Users, tenants, case reviews and the audit trail all live here so tenant data
+# survives restarts when a managed Postgres (e.g. free Neon/Supabase) is attached.
 SQLAlchemy==2.0.35
+psycopg2-binary==2.9.10   # PostgreSQL driver (manylinux wheel — Render-safe)
 PyJWT==2.9.0
 
-# Observability — Prometheus metrics (redis optional, imported lazily if REDIS_URL set)
+# Observability — Prometheus metrics + shared cache (Redis via REDIS_URL, e.g. Upstash).
 prometheus-client==0.21.0
+redis==5.2.1
 
 # Agent orchestration
 langgraph==0.2.45
