@@ -10,6 +10,7 @@ the free-tier LLM quota and the demo backend from runaway loops.
 """
 from __future__ import annotations
 
+import re
 import time
 from collections import defaultdict, deque
 from typing import Deque, Dict
@@ -19,10 +20,18 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from app.config import settings
+from app.tools import metrics
 
 # Paths that never require auth.
-_PUBLIC_PREFIXES = ("/api/health", "/api/auth/login", "/docs", "/openapi.json",
-                    "/redoc", "/favicon")
+_PUBLIC_PREFIXES = ("/api/health", "/api/auth/login", "/metrics", "/docs",
+                    "/openapi.json", "/redoc", "/favicon")
+
+_ID_RE = re.compile(r"/(CASE-\d+|AML-\d+|job_\d+)")
+
+
+def _norm_path(path: str) -> str:
+    """Collapse resource ids so Prometheus label cardinality stays bounded."""
+    return _ID_RE.sub("/{id}", path)
 
 # Paths that are rate limited (the expensive case-processing endpoints).
 _LIMITED_SUBSTRINGS = ("/investigate", "/stream")
@@ -42,7 +51,7 @@ class AuthAndRateLimitMiddleware(BaseHTTPMiddleware):
 
         # Always allow CORS preflight, the root info page, and public paths.
         if request.method == "OPTIONS" or path == "/" or path.startswith(_PUBLIC_PREFIXES):
-            return await call_next(request)
+            return await self._timed(request, call_next)
 
         # --- Auth (coarse gate) ---
         # Accept EITHER a Bearer JWT (real user; validated per-route by the RBAC
@@ -77,4 +86,19 @@ class AuthAndRateLimitMiddleware(BaseHTTPMiddleware):
                 )
             window.append(now)
 
-        return await call_next(request)
+        return await self._timed(request, call_next)
+
+    async def _timed(self, request: Request, call_next):
+        """Run the request and record HTTP metrics."""
+        t0 = time.perf_counter()
+        norm = _norm_path(request.url.path)
+        try:
+            response = await call_next(request)
+            status = response.status_code
+        except Exception:
+            metrics.HTTP_REQUESTS.labels(request.method, norm, "500").inc()
+            raise
+        finally:
+            metrics.HTTP_LATENCY.labels(norm).observe(time.perf_counter() - t0)
+        metrics.HTTP_REQUESTS.labels(request.method, norm, str(status)).inc()
+        return response

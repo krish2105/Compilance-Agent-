@@ -12,6 +12,13 @@ from app.tools import tracing
 router = APIRouter(prefix="/api/health", tags=["health"])
 
 
+def _ops_info() -> dict:
+    from app.db import backend_info
+    from app.tools import cache
+
+    return {**cache.info(), **backend_info()}
+
+
 @router.get("")
 def health() -> dict:
     """Liveness + a summary of the configured LLM strategy and data readiness."""
@@ -24,6 +31,7 @@ def health() -> dict:
         "llm": llm_client.health(),
         "observability": tracing.observability_status(),
         "auth": {"rbac": True, "roles": ["analyst", "mlro", "admin"]},
+        "ops": {**_ops_info(), "metrics_endpoint": "/metrics"},
         "disclaimer": (
             "Portfolio/demo system on synthetic data. Not certified compliance "
             "software. Every output is a draft requiring human sign-off."

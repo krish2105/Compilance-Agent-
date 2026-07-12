@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.middleware import AuthAndRateLimitMiddleware
 from app.api.routes import auth as auth_routes
-from app.api.routes import cases, chat, health
+from app.api.routes import cases, chat, health, ops
 from app.config import settings
 from app.tools import audit
 
@@ -58,6 +58,7 @@ else:
 app.add_middleware(AuthAndRateLimitMiddleware)
 
 app.include_router(health.router)
+app.include_router(ops.router)
 app.include_router(auth_routes.router)
 app.include_router(cases.router)
 app.include_router(chat.router)

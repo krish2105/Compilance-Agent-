@@ -36,7 +36,7 @@ from app.agents import (
     typology_match_agent,
     verifier,
 )
-from app.tools import audit, tracing
+from app.tools import audit, metrics, tracing
 
 MAX_RETRIES = 1
 
@@ -433,7 +433,7 @@ def assemble_result(case_id: str, state: AgentState) -> Dict[str, Any]:
         return {"case_id": case_id, "error": state["error"], "status": "ERROR"}
     gnn = state.get("gnn", {"available": False})
     screening = state.get("screening", {"cleared": True, "screening_risk": 0.0})
-    return {
+    _result = {
         "case_id": case_id,
         "status": "AWAITING_HUMAN_REVIEW",
         "evidence": {
@@ -447,7 +447,7 @@ def assemble_result(case_id: str, state: AgentState) -> Dict[str, Any]:
         },
         "screening": screening,
         "gnn": gnn,
-        "risk": _ensemble_risk(state["typology_match"], gnn, screening),
+        "risk": (risk := _ensemble_risk(state["typology_match"], gnn, screening)),
         "typology_match": state["typology_match"],
         "regulatory": state["regulatory"],
         "narrative": state["narrative_result"]["narrative"],
@@ -463,3 +463,5 @@ def assemble_result(case_id: str, state: AgentState) -> Dict[str, Any]:
         "metrics": state.get("_metrics", {}),
         "events": state.get("events", []),
     }
+    metrics.record_investigation(state.get("_metrics", {}), risk.get("risk_band"))
+    return _result

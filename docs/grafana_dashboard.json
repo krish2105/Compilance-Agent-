@@ -1,0 +1,70 @@
+{
+  "title": "ComplianceAgent — Observability",
+  "uid": "complianceagent",
+  "schemaVersion": 39,
+  "editable": true,
+  "timezone": "browser",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": { "text": "Prometheus", "value": "Prometheus" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1, "title": "Investigation throughput (req/s)", "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [{ "expr": "rate(ca_investigations_total[5m])", "legendFormat": "{{status}}" }]
+    },
+    {
+      "id": 2, "title": "Investigation latency p95 (s)", "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [{ "expr": "histogram_quantile(0.95, sum(rate(ca_investigation_seconds_bucket[5m])) by (le))", "legendFormat": "p95" }]
+    },
+    {
+      "id": 3, "title": "LLM cost (USD, last 1h)", "type": "stat",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 4 } },
+      "targets": [{ "expr": "sum(increase(ca_gen_ai_cost_usd_total[1h]))", "legendFormat": "cost" }]
+    },
+    {
+      "id": 4, "title": "LLM tokens/s by provider", "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [{ "expr": "sum(rate(ca_gen_ai_tokens_total[5m])) by (provider, direction)", "legendFormat": "{{provider}} {{direction}}" }]
+    },
+    {
+      "id": 5, "title": "Cache hit rate", "type": "gauge",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 } },
+      "targets": [{ "expr": "sum(rate(ca_cache_ops_total{op=\"hit\"}[5m])) / clamp_min(sum(rate(ca_cache_ops_total{op=~\"hit|miss\"}[5m])), 0.001)", "legendFormat": "hit rate" }]
+    },
+    {
+      "id": 6, "title": "Ensemble risk band distribution", "type": "piechart",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [{ "expr": "ca_risk_band_total", "legendFormat": "{{band}}" }]
+    },
+    {
+      "id": 7, "title": "HTTP requests/s by status", "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [{ "expr": "sum(rate(ca_http_requests_total[5m])) by (status)", "legendFormat": "{{status}}" }]
+    },
+    {
+      "id": 8, "title": "Active async jobs", "type": "stat",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [{ "expr": "ca_active_jobs", "legendFormat": "active" }]
+    }
+  ]
+}

@@ -210,6 +210,15 @@ the UI (a metrics strip on the narrative), in the API result (`result.metrics`),
 - **Cost model.** Offline provider = **$0/case**. With live Gemini 2.5 Flash a full investigation is a
   single ~1–2k-token narrative call ≈ **$0.001–0.003/case** (illustrative list prices; see the price
   table). Retrieval, typology-matching, and verification use **no** LLM tokens by design.
+- **Prometheus `/metrics`** ([`app/tools/metrics.py`](backend/app/tools/metrics.py)) — real Prometheus
+  exposition (HTTP, investigations, `gen_ai.*` tokens/cost, cache, jobs, risk-band distribution) with a
+  **Grafana dashboard** ([`docs/grafana_dashboard.json`](docs/grafana_dashboard.json)) importable into
+  Grafana Cloud's free tier.
+- **Async jobs** ([`app/tools/jobs.py`](backend/app/tools/jobs.py)) — non-blocking investigations
+  (`POST /api/cases/{id}/investigate/async` → poll `GET /api/jobs/{id}`); in-process for the free tier,
+  same interface swaps to Celery/RQ + Redis for scale.
+- **Caching** ([`app/tools/cache.py`](backend/app/tools/cache.py)) — in-process TTL cache by default,
+  **Redis** when `REDIS_URL` is set (free Upstash); cache hit-rate exported to Prometheus.
 
 See [`DECISIONS.md`](DECISIONS.md) for the architecture decision records behind these choices.
 

@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     jwt_expire_hours: int = Field(default=12, alias="JWT_EXPIRE_HOURS")
     # Operational store: Postgres via DATABASE_URL, else a local SQLite file ($0).
     database_url: Optional[str] = Field(default=None, alias="DATABASE_URL")
+    # Cache: Redis via REDIS_URL (e.g. Upstash free), else an in-process TTL cache.
+    redis_url: Optional[str] = Field(default=None, alias="REDIS_URL")
+    cache_ttl_seconds: int = Field(default=300, alias="CACHE_TTL_SECONDS")
 
     # ---- LLM provider selection ----
     # One of: "offline" | "gemini" | "groq".

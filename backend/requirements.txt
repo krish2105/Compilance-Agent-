@@ -23,6 +23,9 @@ rank-bm25==0.2.2
 SQLAlchemy==2.0.35
 PyJWT==2.9.0
 
+# Observability — Prometheus metrics (redis optional, imported lazily if REDIS_URL set)
+prometheus-client==0.21.0
+
 # Agent orchestration
 langgraph==0.2.45
 langchain-core==0.3.15

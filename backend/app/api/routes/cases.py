@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 from app import auth
 from app.agents import chat_agent, orchestrator
 from app.api import store
-from app.tools import audit, db, guardrails, memory, sar
+from app.tools import audit, db, guardrails, jobs, memory, sar
 
 router = APIRouter(prefix="/api/cases", tags=["cases"])
 
@@ -96,6 +96,22 @@ def similar(case_id: str) -> dict:
     if db.get_case(case_id) is None:
         raise HTTPException(status_code=404, detail=f"Case '{case_id}' not found.")
     return {"case_id": case_id, "similar_cases": memory.similar_cases(case_id, k=5)}
+
+
+def _run_and_cache(case_id: str) -> dict:
+    result = orchestrator.run_case(case_id)
+    store.put_result(case_id, result)
+    return result
+
+
+@router.post("/{case_id}/investigate/async")
+def investigate_async(case_id: str) -> dict:
+    """Submit the investigation as a background job (non-blocking) → returns a job id
+    to poll at GET /api/jobs/{job_id}."""
+    if db.get_case(case_id) is None:
+        raise HTTPException(status_code=404, detail=f"Case '{case_id}' not found.")
+    job_id = jobs.jobs.submit("investigate", _run_and_cache, case_id)
+    return {"job_id": job_id, "status_url": f"/api/jobs/{job_id}"}
 
 
 @router.get("/{case_id}/audit")
