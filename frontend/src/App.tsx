@@ -1,16 +1,29 @@
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Activity, ShieldHalf, TriangleAlert } from "lucide-react";
+import { Activity, LogOut, ShieldHalf, TriangleAlert, UserCircle2 } from "lucide-react";
 import CaseDetail from "./components/CaseDetail";
 import CaseList from "./components/CaseList";
+import LoginScreen from "./components/LoginScreen";
 import ThemeToggle from "./components/ThemeToggle";
 import { fetchHealth } from "./lib/api";
+import { useUi } from "./lib/store";
 
 export default function App() {
-  const health = useQuery({ queryKey: ["health"], queryFn: fetchHealth, retry: 1 });
+  const { user, token, demoMode, signOut } = useUi();
+  const authed = !!token || demoMode;
+
+  const health = useQuery({ queryKey: ["health"], queryFn: fetchHealth, retry: 1, enabled: authed });
   const online = health.isSuccess;
   const provider =
     (health.data?.llm as { provider?: string } | undefined)?.provider ?? "…";
+
+  if (!authed) return <LoginScreen />;
+
+  const roleColor: Record<string, string> = {
+    admin: "bg-brand-soft text-brand",
+    mlro: "bg-priority-high/15 text-priority-high",
+    analyst: "bg-priority-medium/15 text-priority-medium",
+  };
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
@@ -49,6 +62,22 @@ export default function App() {
                 LLM · {provider}
               </span>
             )}
+            {user && (
+              <span
+                className={`chip ${roleColor[user.role] ?? "bg-ink-faint/15 text-ink-muted"}`}
+                title={`Signed in as ${user.username} (${user.role})`}
+              >
+                <UserCircle2 size={13} /> {user.username} · {user.role}
+                {demoMode ? " (demo)" : ""}
+              </span>
+            )}
+            <button
+              onClick={signOut}
+              title="Sign out"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-surface-raised/70 text-ink-muted hover:border-danger/50 hover:text-danger"
+            >
+              <LogOut size={15} />
+            </button>
             <ThemeToggle />
           </div>
         </div>

@@ -27,8 +27,8 @@
 | Hallucination rate | 0.000 | 0.000 |
 | Answer relevancy (proxy) | 0.667 | 0.667 |
 | Verifier catch rate (adversarial) | 1.000 | 1.000 |
-| Avg latency (ms) | 87 | 98 |
-| p95 latency (ms) | 125 | 384 |
+| Avg latency (ms) | 87 | 97 |
+| p95 latency (ms) | 131 | 365 |
 | Avg cost / case (USD) | 0.000000 | 0.000000 |
 
 ## CI gates

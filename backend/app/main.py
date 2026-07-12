@@ -15,6 +15,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.middleware import AuthAndRateLimitMiddleware
+from app.api.routes import auth as auth_routes
 from app.api.routes import cases, chat, health
 from app.config import settings
 from app.tools import audit
@@ -57,6 +58,7 @@ else:
 app.add_middleware(AuthAndRateLimitMiddleware)
 
 app.include_router(health.router)
+app.include_router(auth_routes.router)
 app.include_router(cases.router)
 app.include_router(chat.router)
 
@@ -64,6 +66,10 @@ app.include_router(chat.router)
 @app.on_event("startup")
 def _startup() -> None:
     audit.init_db()
+    from app.auth import seed_default_users
+    from app.db import init_models
+    init_models()
+    seed_default_users()
     if not os.path.exists(settings.duckdb_path):
         logger.warning(
             "Processed dataset not found at %s. Run `python -m app.data_pipeline` "

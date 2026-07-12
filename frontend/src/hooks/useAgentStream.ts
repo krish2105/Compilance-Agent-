@@ -6,7 +6,7 @@
  * Emits agent-step events live and captures the terminal `result` payload.
  */
 import { useCallback, useRef, useState } from "react";
-import { apiConfig, streamUrl } from "../lib/api";
+import { authHeader, streamUrl } from "../lib/api";
 import type { AgentStepEvent, InvestigationResult } from "../lib/types";
 
 export type StreamPhase = "idle" | "running" | "done" | "error";
@@ -37,7 +37,7 @@ export function useAgentStream() {
 
     try {
       const res = await fetch(streamUrl(caseId), {
-        headers: { "X-API-Key": apiConfig.API_KEY, Accept: "text/event-stream" },
+        headers: { ...authHeader(), Accept: "text/event-stream" },
         signal: ctrl.signal,
       });
       if (!res.ok || !res.body) {

@@ -31,11 +31,13 @@ export default function ApprovalGate({
   existingReview: ReviewRecord | null;
   onEdited: (text: string) => void;
 }) {
-  const { reviewer, setReviewer } = useUi();
+  const { user } = useUi();
   const qc = useQueryClient();
   const [notes, setNotes] = useState("");
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(result.narrative);
+  const reviewer = user?.username ?? "analyst";
+  const canFinalize = (user?.role ?? "admin") !== "analyst";
 
   const mutation = useMutation({
     mutationFn: (payload: ReviewPayload) => submitReview(caseId, payload),
@@ -103,12 +105,10 @@ export default function ApprovalGate({
         <>
           <div className="mb-3 grid gap-2 sm:grid-cols-2">
             <div>
-              <label className="label mb-1 block">Reviewer</label>
-              <input
-                value={reviewer}
-                onChange={(e) => setReviewer(e.target.value)}
-                className="w-full rounded-lg border border-line bg-surface-raised/60 px-3 py-2 text-sm text-ink focus:border-brand/60 focus:outline-none"
-              />
+              <label className="label mb-1 block">Reviewing as</label>
+              <div className="rounded-lg border border-line bg-surface-raised/60 px-3 py-2 text-sm text-ink">
+                {reviewer} <span className="text-ink-faint">· {user?.role ?? "admin"}</span>
+              </div>
             </div>
             <div>
               <label className="label mb-1 block">Notes (optional)</label>
@@ -120,6 +120,13 @@ export default function ApprovalGate({
               />
             </div>
           </div>
+
+          {!canFinalize && (
+            <div className="mb-3 rounded-lg border-l-4 border-warn/60 bg-warn/10 px-3 py-2 text-xs text-ink-muted">
+              You are signed in as an <strong>analyst</strong> — you may edit the draft; approving,
+              rejecting, or escalating requires the <strong>MLRO</strong> role.
+            </div>
+          )}
 
           <AnimatePresence>
             {editing && (
@@ -144,14 +151,16 @@ export default function ApprovalGate({
           </AnimatePresence>
 
           <div className="flex flex-wrap gap-2">
-            <button
-              disabled={mutation.isPending}
-              onClick={() => act("APPROVED")}
-              className="btn-ok flex-1"
-            >
-              {mutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
-              Approve
-            </button>
+            {canFinalize && (
+              <button
+                disabled={mutation.isPending}
+                onClick={() => act("APPROVED")}
+                className="btn-ok flex-1"
+              >
+                {mutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
+                Approve
+              </button>
+            )}
             {!editing ? (
               <button onClick={() => setEditing(true)} className="btn-ghost flex-1">
                 <PencilLine size={15} /> Edit
@@ -165,20 +174,24 @@ export default function ApprovalGate({
                 <PencilLine size={15} /> Save edited draft
               </button>
             )}
-            <button
-              disabled={mutation.isPending}
-              onClick={() => act("ESCALATED")}
-              className="btn-ghost flex-1"
-            >
-              <TriangleAlert size={15} /> Escalate
-            </button>
-            <button
-              disabled={mutation.isPending}
-              onClick={() => act("REJECTED")}
-              className="btn-danger flex-1"
-            >
-              <ThumbsDown size={15} /> Reject
-            </button>
+            {canFinalize && (
+              <>
+                <button
+                  disabled={mutation.isPending}
+                  onClick={() => act("ESCALATED")}
+                  className="btn-ghost flex-1"
+                >
+                  <TriangleAlert size={15} /> Escalate
+                </button>
+                <button
+                  disabled={mutation.isPending}
+                  onClick={() => act("REJECTED")}
+                  className="btn-danger flex-1"
+                >
+                  <ThumbsDown size={15} /> Reject
+                </button>
+              </>
+            )}
           </div>
 
           {mutation.isError && (

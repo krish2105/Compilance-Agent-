@@ -19,6 +19,10 @@ numpy==1.26.4
 networkx==3.2.1
 rank-bm25==0.2.2
 
+# Operational store + auth (Postgres-ready via DATABASE_URL; SQLite by default)
+SQLAlchemy==2.0.35
+PyJWT==2.9.0
+
 # Agent orchestration
 langgraph==0.2.45
 langchain-core==0.3.15

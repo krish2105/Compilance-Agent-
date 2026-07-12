@@ -286,9 +286,23 @@ Plus the core guardrails (all genuinely functional, not cosmetic):
 
 ---
 
+## Auth & RBAC (operational store)
+
+Real multi-user access control ([`app/auth.py`](backend/app/auth.py), [`app/models.py`](backend/app/models.py)):
+
+- **JWT login** (`POST /api/auth/login`) with PBKDF2-hashed passwords; roles
+  **analyst < mlro < admin**. The demo `X-API-Key` still works (maps to a demo admin).
+- **RBAC enforced per route:** an analyst may **edit** a draft, but only an **MLRO/admin**
+  may approve / reject / escalate (the review endpoint returns **403** otherwise);
+  only **admin** manages users. The recorded reviewer is the *authenticated* user.
+- **Polyglot persistence:** DuckDB stays the analytical engine for transactions;
+  a **SQLAlchemy** operational store (users, case assignments) is **Postgres-ready**
+  (`DATABASE_URL` → free Neon/Supabase) with a **SQLite** fallback so it still runs at $0.
+- **Demo accounts:** `analyst/analyst123`, `mlro/mlro123`, `admin/admin123` (or "Continue as demo").
+
 ## Production hardening
 
-- API-key auth middleware on all `/api/cases` routes.
+- JWT + RBAC (above); API-key lane retained for the demo.
 - Per-client sliding-window **rate limiting** on the case-processing endpoints.
 - **Graceful LLM failover** (Gemini → Groq → deterministic offline) with clean, non-stack-trace error
   messages surfaced to the frontend.

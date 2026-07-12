@@ -46,9 +46,14 @@ class Settings(BaseSettings):
     environment: str = Field(default="development")
 
     # ---- Auth ----
-    # Simple shared-secret API key that protects the backend routes.
+    # Simple shared-secret API key that protects the backend routes (demo/legacy lane).
     # In development the default key lets the bundled frontend work out of the box.
     backend_api_key: str = Field(default="dev-local-key", alias="BACKEND_API_KEY")
+    # JWT signing secret + token lifetime for the user-auth lane (RBAC).
+    jwt_secret: str = Field(default="dev-jwt-secret-change-me", alias="JWT_SECRET")
+    jwt_expire_hours: int = Field(default=12, alias="JWT_EXPIRE_HOURS")
+    # Operational store: Postgres via DATABASE_URL, else a local SQLite file ($0).
+    database_url: Optional[str] = Field(default=None, alias="DATABASE_URL")
 
     # ---- LLM provider selection ----
     # One of: "offline" | "gemini" | "groq".

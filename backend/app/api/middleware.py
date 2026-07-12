@@ -21,7 +21,8 @@ from starlette.responses import JSONResponse
 from app.config import settings
 
 # Paths that never require auth.
-_PUBLIC_PREFIXES = ("/api/health", "/docs", "/openapi.json", "/redoc", "/favicon")
+_PUBLIC_PREFIXES = ("/api/health", "/api/auth/login", "/docs", "/openapi.json",
+                    "/redoc", "/favicon")
 
 # Paths that are rate limited (the expensive case-processing endpoints).
 _LIMITED_SUBSTRINGS = ("/investigate", "/stream")
@@ -43,13 +44,17 @@ class AuthAndRateLimitMiddleware(BaseHTTPMiddleware):
         if request.method == "OPTIONS" or path == "/" or path.startswith(_PUBLIC_PREFIXES):
             return await call_next(request)
 
-        # --- Auth ---
-        provided = request.headers.get("x-api-key", "")
-        if provided != settings.backend_api_key:
+        # --- Auth (coarse gate) ---
+        # Accept EITHER a Bearer JWT (real user; validated per-route by the RBAC
+        # dependency) OR the legacy X-API-Key. Fine-grained role checks happen in
+        # the route dependencies (require_role).
+        has_bearer = request.headers.get("authorization", "").lower().startswith("bearer ")
+        has_key = request.headers.get("x-api-key", "") == settings.backend_api_key
+        if not (has_bearer or has_key):
             return JSONResponse(
                 status_code=401,
                 content={"error": "unauthorized",
-                         "message": "Missing or invalid X-API-Key header."},
+                         "message": "Missing credentials — log in or send X-API-Key."},
             )
 
         # --- Rate limit (only the expensive routes) ---

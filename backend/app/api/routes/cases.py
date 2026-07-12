@@ -10,10 +10,11 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
+from app import auth
 from app.agents import orchestrator
 from app.api import store
 from app.tools import audit, db, guardrails, sar
@@ -126,9 +127,10 @@ def get_sar_xml(case_id: str):
 
 
 @router.post("/{case_id}/review")
-def submit_review(case_id: str, req: ReviewRequest) -> dict:
-    """The enforced human approval gate. Persists an APPROVE / EDIT / REJECT /
-    ESCALATE decision to the audit log and returns the resulting case status."""
+def submit_review(case_id: str, req: ReviewRequest,
+                  principal: auth.Principal = Depends(auth.get_current_principal)) -> dict:
+    """The enforced human approval gate. RBAC: any authenticated analyst may EDIT a
+    draft, but only an MLRO/admin may APPROVE / REJECT / ESCALATE (finalize)."""
     if db.get_case(case_id) is None:
         raise HTTPException(status_code=404, detail=f"Case '{case_id}' not found.")
 
@@ -137,6 +139,13 @@ def submit_review(case_id: str, req: ReviewRequest) -> dict:
         raise HTTPException(
             status_code=422,
             detail=f"decision must be one of {sorted(_VALID_DECISIONS)}",
+        )
+    # Finalizing decisions are restricted to MLRO/admin.
+    if decision in ("APPROVED", "REJECTED", "ESCALATED") and principal.role == "analyst":
+        raise HTTPException(
+            status_code=403,
+            detail="Analysts may edit the draft; approving/rejecting/escalating "
+                   "requires the MLRO role.",
         )
     if decision == "EDITED" and not (req.edited_narrative and req.edited_narrative.strip()):
         raise HTTPException(
@@ -153,8 +162,10 @@ def submit_review(case_id: str, req: ReviewRequest) -> dict:
                 detail=f"Potential prompt-injection detected in '{field}'; rejected.",
             )
 
+    # Record the AUTHENTICATED reviewer (not a client-supplied name) for integrity.
+    reviewer = f"{principal.username} ({principal.role})"
     review = audit.record_review(
-        case_id, decision, req.reviewer,
+        case_id, decision, reviewer,
         notes=req.notes, edited_narrative=req.edited_narrative,
     )
     return {"ok": True, "review": review}

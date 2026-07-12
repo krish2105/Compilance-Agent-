@@ -13,10 +13,33 @@ const API_KEY = (import.meta.env.VITE_API_KEY as string) || "dev-local-key";
 
 export const apiConfig = { API_URL, API_KEY };
 
+/** Auth header: a logged-in user's JWT, else the demo X-API-Key. */
+export function authHeader(): Record<string, string> {
+  let token: string | null = null;
+  try {
+    token = localStorage.getItem("ca-token");
+  } catch {
+    /* ignore */
+  }
+  return token ? { Authorization: `Bearer ${token}` } : { "X-API-Key": API_KEY };
+}
+
 function headers(json = false): HeadersInit {
-  const h: Record<string, string> = { "X-API-Key": API_KEY };
+  const h: Record<string, string> = { ...authHeader() };
   if (json) h["Content-Type"] = "application/json";
   return h;
+}
+
+export async function login(username: string, password: string): Promise<{
+  token: string;
+  user: { username: string; role: "analyst" | "mlro" | "admin" };
+}> {
+  const res = await fetch(`${API_URL}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+  return handle(res);
 }
 
 async function handle<T>(res: Response): Promise<T> {

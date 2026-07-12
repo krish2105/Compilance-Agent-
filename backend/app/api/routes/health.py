@@ -23,6 +23,7 @@ def health() -> dict:
         "data_ready": db_ready,
         "llm": llm_client.health(),
         "observability": tracing.observability_status(),
+        "auth": {"rbac": True, "roles": ["analyst", "mlro", "admin"]},
         "disclaimer": (
             "Portfolio/demo system on synthetic data. Not certified compliance "
             "software. Every output is a draft requiring human sign-off."
