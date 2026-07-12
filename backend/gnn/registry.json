@@ -452,8 +452,158 @@
   {
     "name": "aml-gnn",
     "version": 7,
-    "stage": "Production",
+    "stage": "Archived",
     "registered_at": "2026-07-12T05:07:38.394009+00:00",
+    "params": {
+      "layer_type": "sage",
+      "hidden": 16,
+      "epochs": 200
+    },
+    "metrics": {
+      "precision": 0.95,
+      "recall": 0.76,
+      "f1": 0.8444,
+      "roc_auc": 0.9406,
+      "pr_auc": 0.9453,
+      "brier": 0.0956,
+      "ece": 0.0642,
+      "n_positive": 25,
+      "n_total": 56
+    },
+    "model_card": {
+      "model": "2-layer SAGE (from-scratch NumPy)",
+      "task": "account-level laundering-involvement node classification",
+      "features": [
+        "out_degree",
+        "in_degree",
+        "log_total_out",
+        "log_total_in",
+        "distinct_receivers",
+        "distinct_senders",
+        "cash_ratio",
+        "cross_border_ratio",
+        "log_max_amount",
+        "log_mean_amount",
+        "sanctioned_touch",
+        "structuring_ratio",
+        "log_time_span_min",
+        "log_min_gap_min",
+        "burstiness",
+        "night_ratio"
+      ],
+      "calibration": "Platt scaling (validation split)",
+      "class_imbalance_pct": 44.64,
+      "intended_use": "Decision support signal ensembled with typology + screening. Draft-only; a human MLRO decides.",
+      "limitations": "Trained on synthetic data; transductive-leaning; not a standalone filing decision.",
+      "selected_over": [
+        "gcn"
+      ],
+      "architecture_comparison": {
+        "gcn": {
+          "precision": 0.7895,
+          "recall": 0.6,
+          "f1": 0.6818,
+          "roc_auc": 0.84,
+          "pr_auc": 0.842,
+          "brier": 0.164,
+          "ece": 0.098,
+          "n_positive": 25,
+          "n_total": 56
+        },
+        "sage": {
+          "precision": 0.8333,
+          "recall": 0.8,
+          "f1": 0.8163,
+          "roc_auc": 0.9174,
+          "pr_auc": 0.9308,
+          "brier": 0.1133,
+          "ece": 0.0835,
+          "n_positive": 25,
+          "n_total": 56
+        }
+      }
+    }
+  },
+  {
+    "name": "aml-gnn",
+    "version": 8,
+    "stage": "Archived",
+    "registered_at": "2026-07-12T17:45:46.375311+00:00",
+    "params": {
+      "layer_type": "sage",
+      "hidden": 16,
+      "epochs": 200
+    },
+    "metrics": {
+      "precision": 0.95,
+      "recall": 0.76,
+      "f1": 0.8444,
+      "roc_auc": 0.9406,
+      "pr_auc": 0.9453,
+      "brier": 0.0956,
+      "ece": 0.0642,
+      "n_positive": 25,
+      "n_total": 56
+    },
+    "model_card": {
+      "model": "2-layer SAGE (from-scratch NumPy)",
+      "task": "account-level laundering-involvement node classification",
+      "features": [
+        "out_degree",
+        "in_degree",
+        "log_total_out",
+        "log_total_in",
+        "distinct_receivers",
+        "distinct_senders",
+        "cash_ratio",
+        "cross_border_ratio",
+        "log_max_amount",
+        "log_mean_amount",
+        "sanctioned_touch",
+        "structuring_ratio",
+        "log_time_span_min",
+        "log_min_gap_min",
+        "burstiness",
+        "night_ratio"
+      ],
+      "calibration": "Platt scaling (validation split)",
+      "class_imbalance_pct": 44.64,
+      "intended_use": "Decision support signal ensembled with typology + screening. Draft-only; a human MLRO decides.",
+      "limitations": "Trained on synthetic data; transductive-leaning; not a standalone filing decision.",
+      "selected_over": [
+        "gcn"
+      ],
+      "architecture_comparison": {
+        "gcn": {
+          "precision": 0.7895,
+          "recall": 0.6,
+          "f1": 0.6818,
+          "roc_auc": 0.84,
+          "pr_auc": 0.842,
+          "brier": 0.164,
+          "ece": 0.098,
+          "n_positive": 25,
+          "n_total": 56
+        },
+        "sage": {
+          "precision": 0.8333,
+          "recall": 0.8,
+          "f1": 0.8163,
+          "roc_auc": 0.9174,
+          "pr_auc": 0.9308,
+          "brier": 0.1133,
+          "ece": 0.0835,
+          "n_positive": 25,
+          "n_total": 56
+        }
+      }
+    }
+  },
+  {
+    "name": "aml-gnn",
+    "version": 9,
+    "stage": "Production",
+    "registered_at": "2026-07-12T17:45:46.813150+00:00",
     "params": {
       "layer_type": "sage",
       "hidden": 16,

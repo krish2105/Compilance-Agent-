@@ -58,6 +58,22 @@ def _fairness_eval() -> Dict[str, Any]:
     return fairness.audit(records)
 
 
+# Precomputed report bundled into the image at build time (see Dockerfile). The
+# suite runs ~40 full investigations, so it is far too heavy to run per-request on
+# a free-tier instance — the endpoint serves this artifact instead.
+_CACHE_PATH = Path(__file__).resolve().parent / "responsible_ai.json"
+
+
+def load_cached() -> Dict[str, Any] | None:
+    """Return the precomputed report if it was baked into the image, else None."""
+    try:
+        if _CACHE_PATH.exists():
+            return json.loads(_CACHE_PATH.read_text())
+    except Exception:  # noqa: BLE001
+        pass
+    return None
+
+
 def run() -> Dict[str, Any]:
     audit.init_db()
     golden = _golden_eval()
@@ -67,6 +83,10 @@ def run() -> Dict[str, Any]:
                "llm_judge_available": settings.llm_provider != "offline"}
     try:
         _write(summary)  # report file is optional (may be a read-only path in a container)
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        _CACHE_PATH.write_text(json.dumps(summary))  # bundle-able JSON for the API
     except Exception:  # noqa: BLE001
         pass
     return summary
@@ -121,6 +141,11 @@ See also the system [Model Card](../docs/MODEL_CARD.md) and [Data Sheet](../docs
 
 
 if __name__ == "__main__":
+    # `--precompute` forces deterministic offline mode so the report can be baked into
+    # the image at build time without live LLM calls (fast, $0, no quota needed).
+    if "--precompute" in sys.argv:
+        settings.llm_provider = "offline"
+        print(f"Precomputing responsible-AI report (offline) → {_CACHE_PATH}")
     s = run()
     print("=== Responsible-AI ===")
     print(f"golden groundedness: {s['golden']['avg_groundedness']} "

@@ -24,6 +24,11 @@ RUN python -m app.data_pipeline
 # deployed data.
 RUN python -m gnn.train
 
+# Precompute the responsible-AI report (golden-set + red-team + fairness) offline so
+# the /api/responsible-ai endpoint serves it instantly instead of running ~40 live
+# investigations per request.
+RUN python -m eval.responsible_ai --precompute
+
 EXPOSE 8000
 
 # Render provides $PORT; default to 8000 locally.

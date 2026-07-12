@@ -44,14 +44,25 @@ def dashboard() -> dict:
 
 @router.get("/api/responsible-ai")
 def responsible_ai() -> dict:
-    """Golden-set groundedness + red-team pass rate + bias/fairness audit (cached)."""
+    """Golden-set groundedness + red-team pass rate + bias/fairness audit.
+
+    The full suite runs ~40 multi-agent investigations, so it is precomputed at image
+    build time (see Dockerfile) and served from that artifact — instant, no per-request
+    LLM calls. Falls back to a live run only if the artifact is missing.
+    """
+    from app.config import settings
     from app.tools import cache
 
     cached = cache.get("responsible_ai")
     if cached is not None:
         return cached
-    from eval.responsible_ai import run
 
-    summary = run()
+    from eval.responsible_ai import load_cached, run
+
+    summary = load_cached()
+    if summary is None:
+        summary = run()  # fallback: compute live (slow — only if the artifact is absent)
+    # Reflect the live provider (the artifact is built in offline mode).
+    summary = {**summary, "llm_judge_available": settings.llm_provider != "offline"}
     cache.set("responsible_ai", summary, ttl=3600)
     return summary
