@@ -10,6 +10,9 @@ export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
+      screens: {
+        xs: "400px",
+      },
       colors: {
         surface: {
           base: "rgb(var(--surface-base) / <alpha-value>)",

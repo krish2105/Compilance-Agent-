@@ -20,13 +20,18 @@ export default function AccountMenu() {
     <>
       <button
         onClick={() => setOpen(true)}
+        aria-label="Account"
         className={`chip ${roleColor[user.role] ?? "bg-ink-faint/15 text-ink-muted"} hover:brightness-110`}
-        title="Account"
+        title={`${user.tenant?.name ? user.tenant.name + " · " : ""}${user.username} · ${user.role}${demoMode ? " (demo)" : ""}`}
       >
-        <UserCircle2 size={13} />
-        {user.tenant && !demoMode ? `${user.tenant.name} · ` : ""}
-        {user.username} · {user.role}
-        {demoMode ? " (demo)" : ""}
+        <UserCircle2 size={14} />
+        {/* Full label on larger screens; icon-only on mobile to save header space. */}
+        <span className="hidden lg:inline">
+          {user.tenant && !demoMode ? `${user.tenant.name} · ` : ""}
+          {user.username} · {user.role}
+          {demoMode ? " (demo)" : ""}
+        </span>
+        <span className="hidden sm:inline lg:hidden">{user.role}</span>
       </button>
 
       <AnimatePresence>
