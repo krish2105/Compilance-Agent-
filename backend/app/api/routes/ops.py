@@ -31,3 +31,18 @@ def model_info() -> dict:
     from app.agents import gnn_agent
 
     return gnn_agent.model_info()
+
+
+@router.get("/api/responsible-ai")
+def responsible_ai() -> dict:
+    """Golden-set groundedness + red-team pass rate + bias/fairness audit (cached)."""
+    from app.tools import cache
+
+    cached = cache.get("responsible_ai")
+    if cached is not None:
+        return cached
+    from eval.responsible_ai import run
+
+    summary = run()
+    cache.set("responsible_ai", summary, ttl=3600)
+    return summary

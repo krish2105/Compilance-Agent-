@@ -1,0 +1,41 @@
+{
+  "description": "Human-curated golden set for the analyst chat agent. Each item pairs a case + question with facts the grounded answer MUST contain. Used by eval/responsible_ai.py to score answer groundedness without an LLM judge ($0), and by the optional LLM-as-judge.",
+  "items": [
+    {
+      "case_id": "CASE-0001",
+      "question": "What typology is this and how confident are we?",
+      "expected_contains": ["structuring"],
+      "intent": "typology"
+    },
+    {
+      "case_id": "CASE-0001",
+      "question": "How much money is involved in total?",
+      "expected_contains": ["transactions", "total"],
+      "intent": "amount"
+    },
+    {
+      "case_id": "CASE-0029",
+      "question": "Is there any sanctions or PEP hit?",
+      "expected_contains": ["sanction"],
+      "intent": "screening"
+    },
+    {
+      "case_id": "CASE-0029",
+      "question": "What is the overall risk band?",
+      "expected_contains": ["risk"],
+      "intent": "risk"
+    },
+    {
+      "case_id": "CASE-0003",
+      "question": "Have we seen similar cases before?",
+      "expected_contains": ["case-"],
+      "intent": "memory"
+    },
+    {
+      "case_id": "CASE-0007",
+      "question": "Who is the subject of this investigation?",
+      "expected_contains": ["subject"],
+      "intent": "subject"
+    }
+  ]
+}

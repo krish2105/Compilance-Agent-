@@ -194,6 +194,22 @@ need no LLM judge and cost $0), then **fails the build if any gate is violated**
 
 ---
 
+## Responsible AI & eval maturity
+
+A dedicated responsible-AI pass ([`backend/eval/responsible_ai.py`](backend/eval/responsible_ai.py),
+report: [`evaluation/responsible_ai.md`](evaluation/responsible_ai.md), API: `GET /api/responsible-ai`,
+runs in CI):
+
+- **Golden set** — human-curated chat Q&A ([`evaluation/golden_set.json`](evaluation/golden_set.json))
+  scored for **groundedness** (deterministic judge, $0; **LLM-as-judge** with a Gemini key) + a
+  production **trace-sampling policy** (100% errors, top-5% cost, 1–5% healthy).
+- **Red-team / jailbreak suite** — a battery of adversarial prompts (injection, jailbreak,
+  exfiltration, roleplay, SQL, PII) — **6/6 blocked or answered safely**.
+- **Bias / fairness audit** — group-fairness of risk flagging by residence country: demographic-parity
+  difference + **disparate-impact ratio** (the 80% rule), with an honest synthetic-data caveat.
+- **Governance docs** — a system [Model Card](docs/MODEL_CARD.md) and dataset
+  [Data Sheet](docs/DATA_SHEET.md) (Mitchell/Gebru frameworks).
+
 ## Observability & cost model
 
 Every investigation is instrumented for **step-level latency, token usage, and $ cost** — surfaced in

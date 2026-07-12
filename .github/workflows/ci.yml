@@ -38,6 +38,11 @@ jobs:
         env:
           LLM_PROVIDER: offline
         run: python -m eval.run_eval
+      - name: Responsible-AI report (red-team + fairness + golden set)
+        working-directory: backend
+        env:
+          LLM_PROVIDER: offline
+        run: python -m eval.responsible_ai
 
   frontend:
     name: Frontend · lint + build
