@@ -2,17 +2,17 @@ import { motion } from "framer-motion";
 import { Loader2, LogIn, ShieldHalf, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { login } from "../lib/api";
-import { useUi } from "../lib/store";
+import { useUi, type Role } from "../lib/store";
 
-const DEMO = [
-  { u: "analyst", p: "analyst123", role: "analyst — view & edit drafts" },
-  { u: "mlro", p: "mlro123", role: "MLRO — approve / reject / file" },
-  { u: "admin", p: "admin123", role: "admin — manage users" },
+const DEMO: { u: string; p: string; role: Role; label: string }[] = [
+  { u: "analyst", p: "analyst123", role: "analyst", label: "analyst — view & edit drafts" },
+  { u: "mlro", p: "mlro123", role: "mlro", label: "MLRO — approve / reject / file" },
+  { u: "admin", p: "admin123", role: "admin", label: "admin — manage users" },
 ];
 
 /** Login screen with role-based demo credentials + a skip-to-demo option. */
 export default function LoginScreen() {
-  const { signIn, enterDemo } = useUi();
+  const { signIn, enterDemo, enterDemoAs } = useUi();
   const [username, setUsername] = useState("mlro");
   const [password, setPassword] = useState("mlro123");
   const [loading, setLoading] = useState(false);
@@ -26,7 +26,19 @@ export default function LoginScreen() {
       const { token, user } = await login(username, password);
       signIn(token, user);
     } catch (e) {
-      setErr((e as Error).message);
+      // Graceful fallback: if the backend auth endpoint is unavailable (hosted
+      // backend a step behind / waking), sign the known demo accounts in with
+      // client-side roles so the RBAC UI still works. Real JWT is used when the
+      // backend supports it.
+      const demo = DEMO.find((d) => d.u === username && d.p === password);
+      if (demo) {
+        enterDemoAs(demo.u, demo.role);
+        return;
+      }
+      setErr(
+        "Sign-in failed. If this is the hosted demo, the backend may be waking or a " +
+          "step behind — use a demo account below, or 'Continue as demo'.",
+      );
     } finally {
       setLoading(false);
     }
@@ -91,7 +103,7 @@ export default function LoginScreen() {
                 className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-[12px] hover:bg-surface-overlay"
               >
                 <span className="font-mono text-ink">{d.u} / {d.p}</span>
-                <span className="text-ink-faint">{d.role}</span>
+                <span className="text-ink-faint">{d.label}</span>
               </button>
             ))}
           </div>

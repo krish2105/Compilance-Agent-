@@ -23,6 +23,7 @@ interface UiState {
   signIn: (token: string, user: AuthUser) => void;
   signOut: () => void;
   enterDemo: () => void;
+  enterDemoAs: (username: string, role: Role) => void;
 }
 
 function loadUser(): AuthUser | null {
@@ -117,9 +118,23 @@ export const useUi = create<UiState>((set, get) => ({
   enterDemo: () => {
     try {
       localStorage.setItem("ca-demo", "1");
+      localStorage.removeItem("ca-token");
+      localStorage.setItem("ca-user", JSON.stringify({ username: "demo", role: "admin" }));
     } catch {
       /* ignore */
     }
     set({ demoMode: true, token: null, user: { username: "demo", role: "admin" } });
+  },
+  // Client-side role demo — used when the backend auth endpoint is unavailable
+  // (e.g. the hosted backend is a step behind). Uses the X-API-Key lane.
+  enterDemoAs: (username, role) => {
+    try {
+      localStorage.setItem("ca-demo", "1");
+      localStorage.removeItem("ca-token");
+      localStorage.setItem("ca-user", JSON.stringify({ username, role }));
+    } catch {
+      /* ignore */
+    }
+    set({ demoMode: true, token: null, user: { username, role } });
   },
 }));
