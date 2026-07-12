@@ -86,7 +86,33 @@ def _startup() -> None:
         if not backend_info().get("durable"):
             logger.warning("Data is on ephemeral SQLite in production — set DATABASE_URL "
                            "(managed Postgres) so tenant data survives restarts.")
-    logger.info("ComplianceAgent API ready. LLM strategy: %s", settings.llm_provider)
+    from app.tools import cache
+    logger.info("ComplianceAgent API ready. LLM strategy: %s · cache: %s%s",
+                settings.llm_provider, cache.info()["cache_backend"],
+                " (distributed — horizontally-scalable)" if cache.info()["distributed"] else "")
+
+
+@app.on_event("shutdown")
+def _shutdown() -> None:
+    # Graceful shutdown: uvicorn drains in-flight requests on SIGTERM; log for orchestrators.
+    logger.info("ComplianceAgent API shutting down — draining in-flight requests.")
+
+
+@app.get("/api/ready", tags=["ops"])
+def ready() -> dict:
+    """Readiness probe for load balancers / orchestrators (K8s, Render, Fly).
+    Reports whether shared state is distributed (safe to run multiple instances)."""
+    from app.db import backend_info
+    from app.tools import cache
+
+    info = cache.info()
+    return {
+        "ready": True,
+        "cache": info["cache_backend"],
+        "distributed": info["distributed"],
+        "durable_db": backend_info().get("durable", False),
+        "horizontally_scalable": info["distributed"] and backend_info().get("durable", False),
+    }
 
 
 @app.get("/", tags=["root"])

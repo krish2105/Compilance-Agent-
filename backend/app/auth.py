@@ -117,32 +117,36 @@ def get_current_principal(request: Request, db: Session = Depends(get_db)) -> Pr
 
 
 # --------------------------------------------------------------------- login throttle
+# Backed by the shared cache (Redis when attached) so brute-force protection stays
+# correct across horizontally-scaled instances; in-process otherwise.
 _MAX_FAILS = 5
 _LOCK_SECONDS = 900  # 15 min
-_fail_log: dict = {}  # key -> list[timestamps]
 
 
-def _now_ts() -> float:
-    import time
-    return time.time()
+def _fail_key(key: str) -> str:
+    return f"loginfail:{key}"
 
 
 def login_lock_seconds(key: str) -> int:
     """Seconds remaining before `key` (org:username) may retry, or 0 if not locked."""
-    now = _now_ts()
-    fails = [t for t in _fail_log.get(key, []) if now - t < _LOCK_SECONDS]
-    _fail_log[key] = fails
-    if len(fails) >= _MAX_FAILS:
-        return int(_LOCK_SECONDS - (now - fails[0])) + 1
+    from app.tools import cache
+
+    count = cache.get(_fail_key(key)) or 0
+    if int(count) >= _MAX_FAILS:
+        return cache.ttl(_fail_key(key)) or _LOCK_SECONDS
     return 0
 
 
 def record_login_failure(key: str) -> None:
-    _fail_log.setdefault(key, []).append(_now_ts())
+    from app.tools import cache
+
+    cache.incr(_fail_key(key), _LOCK_SECONDS)
 
 
 def clear_login_failures(key: str) -> None:
-    _fail_log.pop(key, None)
+    from app.tools import cache
+
+    cache.delete(_fail_key(key))
 
 
 def require_role(*allowed: str):

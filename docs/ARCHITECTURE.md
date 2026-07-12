@@ -76,3 +76,18 @@ billing, org settings and audit export sit on top. See [ADRs](adr/).
 - **Durable mode** → set `DATABASE_URL` (Neon Postgres) + `REDIS_URL` (Upstash).
 - **CI** → GitHub Actions: lint · tests+coverage · eval gate · responsible-AI · Playwright E2E.
 - **Scheduled** → weekly cron refreshes the sanctions snapshot.
+
+## Horizontal scaling & multi-region (L5-ready)
+The app is designed to scale out; the *code* is free, running multiple instances/regions
+is a paid config change.
+
+- **Stateless backend.** All shared state lives in external stores: **Postgres** (tenants,
+  users, reviews, audit, uploads) and **Redis** (cache, investigation results, **rate-limit
+  and login-throttle counters** — atomic `INCR`). No request-affinity or sticky sessions
+  needed, so any request can hit any instance.
+- **Readiness probe.** `GET /api/ready` returns `horizontally_scalable: true` once Redis +
+  Postgres are attached — a load balancer / orchestrator (Render, Fly, K8s) can gate traffic on it.
+- **Graceful shutdown** drains in-flight requests on SIGTERM.
+- **Frontend is already global** — Vercel serves it from a multi-region edge CDN (free).
+- **To scale out (paid):** raise `numInstances` in [`render.yaml`](../render.yaml) (or `fly scale count`),
+  and for multi-region run the backend per region + a Postgres read-replica. No code change.

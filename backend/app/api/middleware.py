@@ -12,8 +12,6 @@ from __future__ import annotations
 
 import re
 import time
-from collections import defaultdict, deque
-from typing import Deque, Dict
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -22,8 +20,8 @@ from starlette.responses import JSONResponse
 from app.config import settings
 from app.tools import metrics
 
-# Paths that never require auth (login + self-serve org signup are public).
-_PUBLIC_PREFIXES = ("/api/health", "/api/auth/login", "/api/auth/register-org",
+# Paths that never require auth (health/readiness probes, login, self-serve signup).
+_PUBLIC_PREFIXES = ("/api/health", "/api/ready", "/api/auth/login", "/api/auth/register-org",
                     "/metrics", "/docs", "/openapi.json", "/redoc", "/favicon")
 
 _ID_RE = re.compile(r"/(CASE-\d+|AML-\d+|job_\d+)")
@@ -35,8 +33,6 @@ def _norm_path(path: str) -> str:
 
 # Paths that are rate limited (the expensive case-processing endpoints).
 _LIMITED_SUBSTRINGS = ("/investigate", "/stream")
-
-_windows: Dict[str, Deque[float]] = defaultdict(deque)
 
 
 def _client_id(request: Request) -> str:
@@ -67,24 +63,24 @@ class AuthAndRateLimitMiddleware(BaseHTTPMiddleware):
             )
 
         # --- Rate limit (only the expensive routes) ---
+        # Shared fixed-window counter via the cache layer — correct across
+        # horizontally-scaled instances when Redis is attached (in-process otherwise).
         if any(s in path for s in _LIMITED_SUBSTRINGS):
-            now = time.time()
-            window = _windows[_client_id(request)]
-            cutoff = now - settings.rate_limit_window_seconds
-            while window and window[0] < cutoff:
-                window.popleft()
-            if len(window) >= settings.rate_limit_requests:
-                retry_after = int(window[0] + settings.rate_limit_window_seconds - now) + 1
+            from app.tools import cache
+
+            win = settings.rate_limit_window_seconds
+            rl_key = f"rl:{_client_id(request)}:{int(time.time()) // win}"
+            count = cache.incr(rl_key, win)
+            if count > settings.rate_limit_requests:
+                retry_after = cache.ttl(rl_key) or win
                 return JSONResponse(
                     status_code=429,
                     headers={"Retry-After": str(retry_after)},
                     content={"error": "rate_limited",
                              "message": f"Rate limit exceeded "
                                         f"({settings.rate_limit_requests} requests / "
-                                        f"{settings.rate_limit_window_seconds}s). "
-                                        f"Retry in ~{retry_after}s."},
+                                        f"{win}s). Retry in ~{retry_after}s."},
                 )
-            window.append(now)
 
         return await self._timed(request, call_next)
 
