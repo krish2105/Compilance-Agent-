@@ -112,6 +112,28 @@ export function streamUrl(caseId: string): string {
   return `${API_URL}/api/cases/${caseId}/stream`;
 }
 
+export interface ChatAnswer {
+  answer: string;
+  tools_used: string[];
+  planner_intents: string[];
+  similar_cases: { case_id: string; typology: string; disposition: string; similarity: number }[];
+  llm_provider?: string;
+  blocked: boolean;
+}
+
+export async function chatWithCase(
+  caseId: string,
+  question: string,
+  history: { role: string; content: string }[],
+): Promise<ChatAnswer> {
+  const res = await fetch(`${API_URL}/api/cases/${caseId}/chat`, {
+    method: "POST",
+    headers: headers(true),
+    body: JSON.stringify({ question, history }),
+  });
+  return handle<ChatAnswer>(res);
+}
+
 export async function getSar(caseId: string): Promise<{
   sar: Record<string, unknown>;
   sla: Record<string, unknown>;

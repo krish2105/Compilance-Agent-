@@ -15,9 +15,9 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from app import auth
-from app.agents import orchestrator
+from app.agents import chat_agent, orchestrator
 from app.api import store
-from app.tools import audit, db, guardrails, sar
+from app.tools import audit, db, guardrails, memory, sar
 
 router = APIRouter(prefix="/api/cases", tags=["cases"])
 
@@ -75,6 +75,27 @@ def investigate(case_id: str) -> dict:
     result = orchestrator.run_case(case_id)
     store.put_result(case_id, result)
     return result
+
+
+class ChatRequest(BaseModel):
+    question: str = Field(..., min_length=1, max_length=1000)
+    history: list = Field(default_factory=list)
+
+
+@router.post("/{case_id}/chat")
+def chat(case_id: str, req: ChatRequest,
+         _: auth.Principal = Depends(auth.get_current_principal)) -> dict:
+    """Conversational Q&A over a case (planner + tool use + case memory)."""
+    result, _case = _result_and_case(case_id)
+    return chat_agent.answer(result, case_id, req.question, req.history)
+
+
+@router.get("/{case_id}/similar")
+def similar(case_id: str) -> dict:
+    """Case memory: the most similar prior cases + their dispositions."""
+    if db.get_case(case_id) is None:
+        raise HTTPException(status_code=404, detail=f"Case '{case_id}' not found.")
+    return {"case_id": case_id, "similar_cases": memory.similar_cases(case_id, k=5)}
 
 
 @router.get("/{case_id}/audit")
@@ -168,4 +189,5 @@ def submit_review(case_id: str, req: ReviewRequest,
         case_id, decision, reviewer,
         notes=req.notes, edited_narrative=req.edited_narrative,
     )
+    memory.invalidate()  # refresh precedent dispositions in case memory
     return {"ok": True, "review": review}

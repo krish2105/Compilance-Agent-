@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  Bot,
   FileText,
   Landmark,
   Play,
@@ -19,17 +20,19 @@ import { cx, priorityStyles } from "../lib/utils";
 import ApprovalGate from "./ApprovalGate";
 import AuditLogViewer from "./AuditLogViewer";
 import EvidenceCitation from "./EvidenceCitation";
+import ChatPanel from "./ChatPanel";
 import NarrativePanel from "./NarrativePanel";
 import ReasoningTracePanel from "./ReasoningTracePanel";
 import SarPanel from "./SarPanel";
 import TypologyPanel from "./TypologyPanel";
 
-type Tab = "narrative" | "evidence" | "typology" | "audit";
+type Tab = "narrative" | "evidence" | "typology" | "chat" | "audit";
 
 const TABS: { key: Tab; label: string; icon: JSX.Element }[] = [
   { key: "narrative", label: "Narrative & Verification", icon: <FileText size={15} /> },
   { key: "evidence", label: "Evidence & Citations", icon: <Table2 size={15} /> },
   { key: "typology", label: "Typology & Regulation", icon: <Target size={15} /> },
+  { key: "chat", label: "Analyst Chat", icon: <Bot size={15} /> },
   { key: "audit", label: "Audit Log", icon: <ScrollText size={15} /> },
 ];
 
@@ -175,6 +178,7 @@ export default function CaseDetail() {
                   )}
                   {tab === "evidence" && <EvidenceCitation result={result} />}
                   {tab === "typology" && <TypologyPanel result={result} />}
+                  {tab === "chat" && <ChatPanel caseId={selectedCaseId} />}
                   {tab === "audit" && <AuditLogViewer caseId={selectedCaseId} />}
                 </motion.div>
               </AnimatePresence>

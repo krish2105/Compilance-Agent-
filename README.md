@@ -237,6 +237,16 @@ account-level transaction graph:
 - **Upgrade path:** a PyTorch-Geometric training script (GraphSAGE / temporal
   LAS-GNN) — see `requirements-gnn.txt`.
 
+## Analyst chat — planner + tool-use + case memory
+
+A conversational agent ([`app/agents/chat_agent.py`](backend/app/agents/chat_agent.py)) answers
+multi-turn questions about a case. A lightweight **planner/supervisor** classifies the question into
+intents and **dynamically routes** to the right tools (evidence, screening, typology, risk, SAR) plus
+**case memory** — an embedding-recall index ([`app/tools/memory.py`](backend/app/tools/memory.py)) that
+surfaces the most similar prior cases and their dispositions ("resembles CASE-0030, sanctioned, sim
+0.94"). Answers are grounded ONLY in the case, prompt-injection is blocked, and it works offline ($0),
+richer with Gemini. Exposed in the UI's **Analyst Chat** tab.
+
 ## Regulatory filing — SAR/STR + goAML export
 
 A completed investigation generates a **draft STR** ([`app/tools/sar.py`](backend/app/tools/sar.py)):
