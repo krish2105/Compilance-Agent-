@@ -43,3 +43,10 @@ frontend/vite.config.d.ts
 
 # Internal build spec (kept local, not part of the portfolio repo)
 complianceagent-master-prompt.md
+
+# test artifacts
+frontend/playwright-report/
+frontend/test-results/
+backend/.coverage
+backend/coverage.xml
+backend/htmlcov/

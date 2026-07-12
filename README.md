@@ -2,6 +2,12 @@
 
 # 🛡️ ComplianceAgent
 
+![tests](https://img.shields.io/badge/tests-80%20passing-brightgreen)
+![coverage](https://img.shields.io/badge/coverage-76%25-green)
+![e2e](https://img.shields.io/badge/e2e-Playwright-45ba4b)
+![CI](https://img.shields.io/badge/CI-lint%20%2B%20tests%20%2B%20eval%20%2B%20e2e-blue)
+![cost](https://img.shields.io/badge/run%20cost-%240%2Fmonth-success)
+
 **A multi-agent AML/KYC case-investigation copilot** that pre-screens flagged transactions,
 drafts case narratives and Enhanced Due Diligence (EDD) reports with **full evidence citations**,
 **verifies every claim against source data**, and routes every case through a **mandatory human
@@ -412,6 +418,22 @@ Real multi-user access control ([`app/auth.py`](backend/app/auth.py), [`app/mode
   a **SQLAlchemy** operational store (users, case assignments) is **Postgres-ready**
   (`DATABASE_URL` → free Neon/Supabase) with a **SQLite** fallback so it still runs at $0.
 - **Demo accounts:** `analyst/analyst123`, `mlro/mlro123`, `admin/admin123` (or "Continue as demo").
+
+## Testing, quality & proof
+
+- **Backend:** **80 tests**, **76% line coverage** (pytest-cov, reported in CI).
+- **End-to-end:** **Playwright** drives full user journeys — login, case queue, navigation,
+  case detail, command palette, RTL toggle, mobile bottom-nav — on **desktop and mobile
+  (Pixel 5)** viewports, against a real backend spun up in CI ([`frontend/e2e`](frontend/e2e),
+  [`playwright.config.ts`](frontend/playwright.config.ts)).
+- **Load:** a **Locust** suite ([`backend/loadtest`](backend/loadtest)) on the hot read paths —
+  measured **~40 req/s, 0% errors, p50 11 ms / p95 110 ms** at 25 concurrent users on one
+  free-tier-sized instance.
+- **Typed contract:** the frontend's API types are **generated from the FastAPI OpenAPI spec**
+  (`npm run gen:api` → [`api-types.ts`](frontend/src/lib/api-types.ts)); [`scripts/gen-openapi.sh`](scripts/gen-openapi.sh)
+  keeps client and server in lockstep (no drift).
+- **CI** (GitHub Actions): ruff · pytest + coverage · eval gate · responsible-AI · **Playwright E2E** ·
+  frontend lint + build.
 
 ## Production hardening
 
