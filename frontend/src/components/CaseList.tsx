@@ -14,18 +14,25 @@ export default function CaseList() {
     queryFn: listCases,
   });
   const [q, setQ] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const cases = useMemo(() => {
-    const list = data ?? [];
-    if (!q.trim()) return list;
-    const needle = q.toLowerCase();
-    return list.filter(
-      (c) =>
-        c.case_id.toLowerCase().includes(needle) ||
-        c.subject_account.toLowerCase().includes(needle) ||
-        c.alert_summary.toLowerCase().includes(needle),
-    );
-  }, [data, q]);
+    let list = data ?? [];
+    if (q.trim()) {
+      const needle = q.toLowerCase();
+      list = list.filter(
+        (c) =>
+          c.case_id.toLowerCase().includes(needle) ||
+          c.subject_account.toLowerCase().includes(needle) ||
+          c.alert_summary.toLowerCase().includes(needle),
+      );
+    }
+    if (priorityFilter !== "all") list = list.filter((c) => c.priority === priorityFilter);
+    if (statusFilter === "pending") list = list.filter((c) => c.review_status === "PENDING_REVIEW");
+    if (statusFilter === "reviewed") list = list.filter((c) => c.review_status !== "PENDING_REVIEW");
+    return list;
+  }, [data, q, priorityFilter, statusFilter]);
 
   const pending = (data ?? []).filter((c) => c.review_status === "PENDING_REVIEW").length;
 
@@ -54,6 +61,29 @@ export default function CaseList() {
           placeholder="Search case, account, pattern…"
           className="w-full rounded-xl border border-line bg-surface-raised/60 py-2.5 pl-9 pr-3 text-sm text-ink placeholder:text-ink-faint focus:border-brand/60 focus:outline-none focus:ring-2 focus:ring-brand/25"
         />
+      </div>
+
+      <div className="mb-3 flex gap-2">
+        <select
+          value={priorityFilter}
+          onChange={(e) => setPriorityFilter(e.target.value)}
+          className="flex-1 rounded-lg border border-line bg-surface-raised/60 px-2 py-1.5 text-xs text-ink focus:border-brand/60 focus:outline-none"
+        >
+          <option value="all">All priorities</option>
+          <option value="Critical">Critical</option>
+          <option value="High">High</option>
+          <option value="Medium">Medium</option>
+          <option value="Low">Low</option>
+        </select>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="flex-1 rounded-lg border border-line bg-surface-raised/60 px-2 py-1.5 text-xs text-ink focus:border-brand/60 focus:outline-none"
+        >
+          <option value="all">All statuses</option>
+          <option value="pending">Pending review</option>
+          <option value="reviewed">Reviewed</option>
+        </select>
       </div>
 
       <div className="-mr-2 flex-1 space-y-2.5 overflow-y-auto pr-2">

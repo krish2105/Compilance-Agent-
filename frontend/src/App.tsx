@@ -1,15 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Activity, LogOut, ShieldHalf, TriangleAlert, UserCircle2 } from "lucide-react";
+import { Activity, LayoutDashboard, ListChecks, LogOut, ShieldHalf, TriangleAlert, UserCircle2 } from "lucide-react";
 import CaseDetail from "./components/CaseDetail";
 import CaseList from "./components/CaseList";
+import Dashboard from "./components/Dashboard";
 import LoginScreen from "./components/LoginScreen";
 import ThemeToggle from "./components/ThemeToggle";
 import { fetchHealth } from "./lib/api";
 import { useUi } from "./lib/store";
 
 export default function App() {
-  const { user, token, demoMode, signOut } = useUi();
+  const { user, token, demoMode, signOut, view, setView } = useUi();
   const authed = !!token || demoMode;
 
   const health = useQuery({ queryKey: ["health"], queryFn: fetchHealth, retry: 1, enabled: authed });
@@ -45,6 +46,22 @@ export default function App() {
             <p className="hidden text-[11px] text-ink-faint sm:block">
               Multi-agent case investigation · evidence-cited drafts · human-in-the-loop
             </p>
+          </div>
+
+          <div className="ml-4 hidden items-center gap-1 rounded-xl border border-line bg-surface-raised/60 p-1 md:flex">
+            {([["cases", "Cases", <ListChecks size={14} />], ["dashboard", "Dashboard", <LayoutDashboard size={14} />]] as const).map(
+              ([v, label, icon]) => (
+                <button
+                  key={v}
+                  onClick={() => setView(v)}
+                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                    view === v ? "bg-brand text-white shadow-glow" : "text-ink-muted hover:bg-surface-overlay"
+                  }`}
+                >
+                  {icon} {label}
+                </button>
+              ),
+            )}
           </div>
 
           <div className="ml-auto flex items-center gap-2.5">
@@ -93,21 +110,25 @@ export default function App() {
         </div>
       </header>
 
-      {/* Body: floating two-pane layout */}
-      <main className="mx-auto grid w-full max-w-[1500px] flex-1 grid-cols-1 gap-4 overflow-hidden p-4 lg:grid-cols-[360px_1fr]">
-        <aside className="glass hidden min-h-0 flex-col p-3 lg:flex">
-          <CaseList />
-        </aside>
-
-        {/* Mobile: case list collapses above detail */}
-        <aside className="glass min-h-0 p-3 lg:hidden">
-          <CaseList />
-        </aside>
-
-        <section className="min-h-0">
-          <CaseDetail />
-        </section>
-      </main>
+      {/* Body */}
+      {view === "dashboard" ? (
+        <main className="mx-auto w-full max-w-[1500px] flex-1 overflow-y-auto p-4">
+          <Dashboard />
+        </main>
+      ) : (
+        <main className="mx-auto grid w-full max-w-[1500px] flex-1 grid-cols-1 gap-4 overflow-hidden p-4 lg:grid-cols-[360px_1fr]">
+          <aside className="glass hidden min-h-0 flex-col p-3 lg:flex">
+            <CaseList />
+          </aside>
+          {/* Mobile: case list collapses above detail */}
+          <aside className="glass min-h-0 p-3 lg:hidden">
+            <CaseList />
+          </aside>
+          <section className="min-h-0">
+            <CaseDetail />
+          </section>
+        </main>
+      )}
     </div>
   );
 }

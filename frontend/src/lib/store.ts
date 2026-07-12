@@ -13,6 +13,8 @@ interface UiState {
   toggleTheme: () => void;
   selectedCaseId: string | null;
   selectCase: (id: string | null) => void;
+  view: "cases" | "dashboard";
+  setView: (v: "cases" | "dashboard") => void;
   reviewer: string;
   setReviewer: (name: string) => void;
 
@@ -63,6 +65,8 @@ export const useUi = create<UiState>((set, get) => ({
   },
   selectedCaseId: null,
   selectCase: (id) => set({ selectedCaseId: id }),
+  view: "cases",
+  setView: (v) => set({ view: v }),
   reviewer: (() => {
     try {
       return localStorage.getItem("ca-reviewer") || "analyst_kalpana";

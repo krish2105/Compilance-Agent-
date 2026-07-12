@@ -147,6 +147,19 @@ def get_sar(case_id: str) -> dict:
     return sar.build_all(result, case, review, narrative_override=edited)
 
 
+@router.get("/{case_id}/report")
+def get_report(case_id: str):
+    """Self-contained printable HTML case report (browser → PDF)."""
+    from fastapi.responses import HTMLResponse
+
+    from app.tools import report as report_tool
+
+    result, case = _result_and_case(case_id)
+    review = audit.get_latest_review(case_id)
+    html = report_tool.build_html_report(result, case, review)
+    return HTMLResponse(content=html)
+
+
 @router.get("/{case_id}/sar.xml")
 def get_sar_xml(case_id: str):
     """Download the STR as goAML-schema XML (the UAE FIU / UNODC filing format)."""
@@ -206,4 +219,6 @@ def submit_review(case_id: str, req: ReviewRequest,
         notes=req.notes, edited_narrative=req.edited_narrative,
     )
     memory.invalidate()  # refresh precedent dispositions in case memory
+    from app.tools import analytics
+    analytics.invalidate()  # refresh dashboard dispositions
     return {"ok": True, "review": review}

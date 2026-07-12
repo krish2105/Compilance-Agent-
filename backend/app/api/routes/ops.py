@@ -33,6 +33,15 @@ def model_info() -> dict:
     return gnn_agent.model_info()
 
 
+@router.get("/api/dashboard")
+def dashboard() -> dict:
+    """Portfolio analytics (alert volume, dispositions, SAR rate, risk-band + typology
+    distribution). Cached."""
+    from app.tools import analytics
+
+    return analytics.compute_dashboard()
+
+
 @router.get("/api/responsible-ai")
 def responsible_ai() -> dict:
     """Golden-set groundedness + red-team pass rate + bias/fairness audit (cached)."""

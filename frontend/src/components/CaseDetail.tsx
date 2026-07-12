@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Bot,
+  FileDown,
   FileText,
   Landmark,
   Play,
@@ -12,7 +13,7 @@ import {
   Target,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { getCaseDetail } from "../lib/api";
+import { getCaseDetail, openCaseReport } from "../lib/api";
 import { useAgentStream } from "../hooks/useAgentStream";
 import { useUi } from "../lib/store";
 import type { InvestigationResult } from "../lib/types";
@@ -90,6 +91,15 @@ export default function CaseDetail() {
             <p className="mt-1 line-clamp-1 text-[13px] text-ink-muted">{caseInfo.alert_summary}</p>
           )}
         </div>
+        {result && !result.error && (
+          <button
+            onClick={() => openCaseReport(selectedCaseId).catch(() => undefined)}
+            className="btn-ghost"
+            title="Open a printable case report (save as PDF)"
+          >
+            <FileDown size={15} /> Report
+          </button>
+        )}
         <button
           onClick={() => stream.start(selectedCaseId)}
           disabled={stream.phase === "running"}

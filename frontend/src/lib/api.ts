@@ -112,6 +112,22 @@ export function streamUrl(caseId: string): string {
   return `${API_URL}/api/cases/${caseId}/stream`;
 }
 
+export async function getDashboard(): Promise<Record<string, any>> {
+  const res = await fetch(`${API_URL}/api/dashboard`, { headers: headers() });
+  return handle(res);
+}
+
+/** Fetch the printable case report (with auth) and open it in a new tab (auto-prints). */
+export async function openCaseReport(caseId: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/cases/${caseId}/report`, { headers: headers() });
+  if (!res.ok) throw new Error(`Report failed: ${res.status}`);
+  const htmlText = await res.text();
+  const blob = new Blob([htmlText], { type: "text/html" });
+  const url = URL.createObjectURL(blob);
+  window.open(url, "_blank");
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
 export interface ChatAnswer {
   answer: string;
   tools_used: string[];

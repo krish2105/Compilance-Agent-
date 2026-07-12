@@ -269,6 +269,16 @@ account-level transaction graph:
 - **Upgrade path:** a PyTorch-Geometric training script (GraphSAGE / temporal
   LAS-GNN) — see `requirements-gnn.txt`.
 
+## Dashboard, reporting & case management
+
+- **Analytics dashboard** (`GET /api/dashboard`, [`app/tools/analytics.py`](backend/app/tools/analytics.py))
+  — alert volume by priority, review dispositions, **SAR rate**, ensemble **risk-band** and **typology
+  distribution**, screening hit-rate — computed with a fast no-LLM assessment and cached. Rendered as a
+  **Dashboard** view in the UI (hand-rolled charts, no chart lib).
+- **Printable case report** (`GET /api/cases/{id}/report`, [`app/tools/report.py`](backend/app/tools/report.py))
+  — a self-contained styled HTML STR report that auto-triggers print → **save as PDF** (no PDF library).
+- **Queue polish** — priority + review-status filters on the case queue; role-aware actions.
+
 ## Analyst chat — planner + tool-use + case memory
 
 A conversational agent ([`app/agents/chat_agent.py`](backend/app/agents/chat_agent.py)) answers
