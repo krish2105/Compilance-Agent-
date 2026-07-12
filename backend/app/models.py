@@ -95,6 +95,69 @@ class AuditEvent(Base):
     llm_provider: Mapped[str] = mapped_column(String(32), default="", nullable=True)
 
 
+class TenantCase(Base):
+    """A case created from a tenant's OWN uploaded transactions (per-tenant ingestion).
+    Globally-unique case_id (tenant-slug prefixed) so the existing case_id-routed agent
+    pipeline serves it transparently. Durable."""
+
+    __tablename__ = "tenant_cases"
+    __table_args__ = (Index("ix_tcase_tenant", "tenant"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    case_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    tenant: Mapped[str] = mapped_column(String(48))
+    created_at: Mapped[str] = mapped_column(String(32))
+    subject_account: Mapped[str] = mapped_column(String(64))
+    focal_transaction_id: Mapped[str] = mapped_column(String(64))
+    alert_summary: Mapped[str] = mapped_column(Text, default="")
+    priority: Mapped[str] = mapped_column(String(16), default="Medium")
+    status: Mapped[str] = mapped_column(String(32), default="OPEN")
+
+    def to_case_dict(self) -> dict:
+        return {
+            "case_id": self.case_id, "created_at": self.created_at,
+            "subject_account": self.subject_account,
+            "focal_transaction_id": self.focal_transaction_id,
+            "alert_summary": self.alert_summary, "priority": self.priority,
+            "status": self.status, "source": "uploaded",
+        }
+
+
+class TenantTransaction(Base):
+    """A transaction row belonging to an uploaded tenant case. Mirrors the analytical
+    transaction schema so it flows through evidence/signals/graph/GNN unchanged."""
+
+    __tablename__ = "tenant_transactions"
+    __table_args__ = (Index("ix_ttx_case", "case_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    case_id: Mapped[str] = mapped_column(String(64))
+    tenant: Mapped[str] = mapped_column(String(48))
+    transaction_id: Mapped[str] = mapped_column(String(64))
+    timestamp: Mapped[str] = mapped_column(String(32))
+    sender_account: Mapped[str] = mapped_column(String(64))
+    receiver_account: Mapped[str] = mapped_column(String(64))
+    amount: Mapped[float]
+    payment_currency: Mapped[str] = mapped_column(String(8), default="AED")
+    payment_type: Mapped[str] = mapped_column(String(32), default="Transfer")
+    sender_bank_location: Mapped[str] = mapped_column(String(48), default="UAE")
+    receiver_bank_location: Mapped[str] = mapped_column(String(48), default="UAE")
+
+    def to_tx_dict(self) -> dict:
+        ts = self.timestamp
+        date, _, time = ts.partition("T")
+        return {
+            "transaction_id": self.transaction_id, "timestamp": ts,
+            "date": date, "time": (time[:8] if time else ""),
+            "sender_account": self.sender_account, "receiver_account": self.receiver_account,
+            "amount": self.amount, "payment_currency": self.payment_currency,
+            "received_currency": self.payment_currency, "payment_type": self.payment_type,
+            "sender_bank_location": self.sender_bank_location,
+            "receiver_bank_location": self.receiver_bank_location,
+            "is_laundering": 0, "laundering_type": "", "case_id": self.case_id,
+        }
+
+
 class CaseReview(Base):
     """The human review decision per case, per tenant (the enforced approval gate).
     Durable + tenant-scoped."""

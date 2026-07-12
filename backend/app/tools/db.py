@@ -24,8 +24,12 @@ def _rows_to_dicts(cur) -> List[Dict[str, Any]]:
     return [dict(zip(cols, row)) for row in cur.fetchall()]
 
 
-def list_cases() -> List[Dict[str, Any]]:
-    """Return all investigation cases with a lightweight transaction count."""
+def list_cases(tenant: Optional[str] = None) -> List[Dict[str, Any]]:
+    """All investigation cases with a lightweight transaction count.
+
+    The shared demo book (DuckDB) plus — when `tenant` is given — that tenant's own
+    uploaded cases (per-tenant ingestion). Uploaded cases sort to the top.
+    """
     with _con() as con:
         cur = con.execute(
             """
@@ -40,14 +44,26 @@ def list_cases() -> List[Dict[str, Any]]:
                 c.case_id
             """
         )
-        return _rows_to_dicts(cur)
+        demo = _rows_to_dicts(cur)
+    for d in demo:
+        d["source"] = "demo"
+    if not tenant:
+        return demo
+    from app.tools import tenant_data
+
+    return tenant_data.list_cases(tenant) + demo
 
 
 def get_case(case_id: str) -> Optional[Dict[str, Any]]:
     with _con() as con:
         cur = con.execute("SELECT * FROM cases WHERE case_id = ?", [case_id])
         rows = _rows_to_dicts(cur)
-        return rows[0] if rows else None
+    if rows:
+        return {**rows[0], "source": "demo"}
+    # Fall through to a tenant's uploaded cases (globally-unique case ids).
+    from app.tools import tenant_data
+
+    return tenant_data.get_case(case_id)
 
 
 def get_all_transactions() -> List[Dict[str, Any]]:
@@ -64,7 +80,13 @@ def get_case_transactions(case_id: str) -> List[Dict[str, Any]]:
             "SELECT * FROM transactions WHERE case_id = ? ORDER BY timestamp",
             [case_id],
         )
-        return _rows_to_dicts(cur)
+        rows = _rows_to_dicts(cur)
+    if rows:
+        return rows
+    # Uploaded (tenant) case — served from the durable operational store.
+    from app.tools import tenant_data
+
+    return tenant_data.get_case_transactions(case_id)
 
 
 def get_kyc(account: str) -> Optional[Dict[str, Any]]:

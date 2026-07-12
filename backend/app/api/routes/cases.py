@@ -36,8 +36,8 @@ _VALID_DECISIONS = {"APPROVED", "REJECTED", "EDITED", "ESCALATED"}
 
 @router.get("")
 def list_cases(principal: auth.Principal = Depends(auth.get_current_principal)) -> List[dict]:
-    """All investigation cases with THIS tenant's current review status."""
-    cases = db.list_cases()
+    """The shared demo book + THIS tenant's uploaded cases, with its review status."""
+    cases = db.list_cases(principal.tenant)
     for c in cases:
         review = audit.get_latest_review(c["case_id"], principal.tenant)
         c["review_status"] = review["status"] if review else "PENDING_REVIEW"

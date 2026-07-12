@@ -4,6 +4,7 @@
 # backend, additionally install requirements-full.txt and set VECTOR_BACKEND=chroma.
 fastapi==0.115.6
 uvicorn[standard]==0.30.6
+python-multipart==0.0.12   # CSV/file uploads (per-tenant ingestion)
 sse-starlette==2.1.3
 python-dotenv==1.0.1
 pydantic==2.9.2

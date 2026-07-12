@@ -25,7 +25,16 @@ CASH_TYPES = {"Cash Deposit", "Cash Withdrawal"}
 
 
 def _parse_ts(s: str) -> datetime:
-    return datetime.strptime(s, "%Y-%m-%d %H:%M:%S")
+    """Parse a timestamp leniently — the synthetic book uses space-separated
+    "%Y-%m-%d %H:%M:%S"; uploaded/ingested data may use ISO 'T' or trailing 'Z'."""
+    s = str(s).strip().replace("T", " ").rstrip("Z").strip()
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(s, fmt)
+        except ValueError:
+            continue
+    # Last resort: date only or unknown — return epoch-ish so downstream math is safe.
+    return datetime(2020, 1, 1)
 
 
 def _clip01(x: float) -> float:

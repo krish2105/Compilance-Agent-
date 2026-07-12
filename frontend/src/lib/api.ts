@@ -49,6 +49,35 @@ export async function login(
   return handle(res);
 }
 
+/** Ingest transactions as JSON rows → creates a tenant case. */
+export async function ingestRows(
+  rows: Record<string, unknown>[],
+  summary?: string,
+): Promise<{ ok: boolean; case: { case_id: string; priority: string; transaction_count: number } }> {
+  const res = await fetch(`${API_URL}/api/ingest/transactions`, {
+    method: "POST",
+    headers: headers(true),
+    body: JSON.stringify({ rows, summary }),
+  });
+  return handle(res);
+}
+
+/** Ingest a CSV file upload → creates a tenant case. */
+export async function ingestCsv(
+  file: File,
+): Promise<{ ok: boolean; case: { case_id: string; priority: string; transaction_count: number } }> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`${API_URL}/api/ingest/csv`, {
+    method: "POST",
+    headers: authHeader(), // no Content-Type — browser sets multipart boundary
+    body: form,
+  });
+  return handle(res);
+}
+
+export const ingestTemplateUrl = `${API_URL}/api/ingest/template`;
+
 export interface TeamMember {
   username: string;
   email: string;

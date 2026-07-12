@@ -129,6 +129,54 @@ def test_reviews_persist_in_the_durable_operational_store():
         db.close()
 
 
+def test_per_tenant_ingestion_runs_full_pipeline_and_isolates():
+    """An org uploads its own transactions → a case is created, runs through the full
+    multi-agent pipeline, and is invisible to other tenants."""
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    _setup()
+    with TestClient(app) as c:
+        tok = c.post("/api/auth/register-org",
+                     json={"org_name": "Ingest Co", "username": "ingestadmin",
+                           "password": "iopass1"}).json()["token"]
+        H = {"Authorization": f"Bearer {tok}"}
+        rows = [
+            {"sender_account": "ACC-1001", "receiver_account": "ACC-3003",
+             "amount": 49200, "receiver_bank_location": "Iran"},
+            {"sender_account": "ACC-1001", "receiver_account": "ACC-5005",
+             "amount": 46900, "receiver_bank_location": "Syria"},
+        ]
+        ing = c.post("/api/ingest/transactions", headers=H, json={"rows": rows})
+        assert ing.status_code == 200
+        cid = ing.json()["case"]["case_id"]
+        assert cid.startswith("ingest-co-")
+
+        # Full investigation runs on the uploaded data.
+        res = c.post(f"/api/cases/{cid}/investigate", headers=H).json()
+        assert res["narrative"]
+        assert res["verification"]["passed"] is True
+        assert res["gnn"]["available"] is True
+        # Sanctioned jurisdictions → screening flags it.
+        assert res["screening"]["cleared"] is False
+
+        # The uploaded case appears in this org's queue, tagged 'uploaded'.
+        mine = c.get("/api/cases", headers=H).json()
+        assert any(x["case_id"] == cid and x.get("source") == "uploaded" for x in mine)
+
+        # Another org cannot see it.
+        tok2 = c.post("/api/auth/register-org",
+                      json={"org_name": "Other Co", "username": "otheradmin",
+                            "password": "o2pass1"}).json()["token"]
+        theirs = c.get("/api/cases", headers={"Authorization": f"Bearer {tok2}"}).json()
+        assert not any(x["case_id"] == cid for x in theirs)
+
+        # Bad upload is rejected.
+        assert c.post("/api/ingest/transactions", headers=H,
+                      json={"rows": [{"amount": 5}]}).status_code == 422
+
+
 def test_dashboard_dispositions_are_per_tenant():
     _setup()
     # Fresh tenants: nothing finalized yet.
