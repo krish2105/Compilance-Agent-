@@ -53,7 +53,13 @@ export default function SarPanel({ caseId }: { caseId: string }) {
           <Loader2 size={15} className="animate-spin" /> Preparing STR…
         </div>
       )}
-      {isError && <p className="text-sm text-danger">Failed to build STR.</p>}
+      {isError && (
+        <div className="rounded-lg border border-warn/40 bg-warn/10 px-3 py-2 text-xs text-ink-muted">
+          STR generation isn't available from this backend yet. If you're on the hosted demo, the
+          backend may be waking (free-tier cold start ~30–60s) or a step behind the frontend — retry
+          shortly, or redeploy the latest backend commit.
+        </div>
+      )}
 
       {sar && activity && (
         <>
