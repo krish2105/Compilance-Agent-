@@ -38,6 +38,8 @@ export default function GnnPanel({ result }: { result: InvestigationResult }) {
           <div className="text-right text-[11px] text-ink-faint">
             <div>typology: {pct(risk.components.typology_confidence)}</div>
             <div>GNN: {pct(risk.components.gnn_case_risk)}</div>
+            <div>screening: {pct(risk.components.screening_risk)}</div>
+            {risk.sanctions_override && <div className="text-danger">⚠ sanctions override</div>}
           </div>
         </div>
         <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-base">

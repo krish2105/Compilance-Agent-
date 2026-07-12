@@ -32,6 +32,7 @@ from app.agents import (
     gnn_agent,
     narrative_agent,
     regulatory_context_agent,
+    screening_agent,
     typology_match_agent,
     verifier,
 )
@@ -43,6 +44,7 @@ MAX_RETRIES = 1
 class AgentState(TypedDict, total=False):
     case_id: str
     evidence: Dict[str, Any]
+    screening: Dict[str, Any]
     gnn: Dict[str, Any]
     typology_match: Dict[str, Any]
     regulatory: Dict[str, Any]
@@ -98,6 +100,29 @@ def evidence_node(state: AgentState) -> AgentState:
     }
 
 
+def screening_node(state: AgentState) -> AgentState:
+    if state.get("error"):
+        return {}
+    case_id = state["case_id"]
+    with tracing.span("ScreeningAgent"):
+        scr = screening_agent.screen_case(state["evidence"])
+    audit.log_event(
+        case_id, "ScreeningAgent", "SANCTIONS_SCREENING",
+        summary=scr["summary"],
+        detail={"cleared": scr["cleared"], "risk_level": scr["risk_level"],
+                "name_hits": scr["name_hits"], "sanctioned_jurisdictions": scr["sanctioned_jurisdictions"]},
+    )
+    return {
+        "screening": scr,
+        "events": [_event("ScreeningAgent", 2, "done",
+                          ("Screening: " + scr["risk_level"]),
+                          {"cleared": scr["cleared"], "risk_level": scr["risk_level"],
+                           "summary": scr["summary"], "name_hits": scr["name_hits"],
+                           "pep_hits": scr["pep_hits"], "pep_flagged": scr["pep_flagged"],
+                           "jurisdiction_hits": scr["jurisdiction_hits"]})],
+    }
+
+
 def gnn_node(state: AgentState) -> AgentState:
     if state.get("error"):
         return {}
@@ -116,7 +141,7 @@ def gnn_node(state: AgentState) -> AgentState:
              else "GNN model unavailable — skipped")
     return {
         "gnn": gnn,
-        "events": [_event("GNNAgent", 2, "done", title,
+        "events": [_event("GNNAgent", 3, "done", title,
                           {"case_risk": gnn.get("case_risk"),
                            "subject_risk": gnn.get("subject_risk"),
                            "top_risk_accounts": gnn.get("top_risk_accounts", []),
@@ -140,7 +165,7 @@ def typology_node(state: AgentState) -> AgentState:
     )
     return {
         "typology_match": match,
-        "events": [_event("TypologyMatchAgent", 3, "done",
+        "events": [_event("TypologyMatchAgent", 4, "done",
                           f"Matched typology: {match['best_match']['typology_label']}",
                           {"best_match": match["best_match"],
                            "ranked": match["ranked"],
@@ -164,7 +189,7 @@ def regulatory_node(state: AgentState) -> AgentState:
     )
     return {
         "regulatory": reg,
-        "events": [_event("RegulatoryContextAgent", 4, "done",
+        "events": [_event("RegulatoryContextAgent", 5, "done",
                           f"Retrieved regulatory context ({reg['primary']['label']})",
                           {"primary": reg["primary"], "retrieved": reg["retrieved"],
                            "rag_backend": reg["rag_backend"]})],
@@ -194,7 +219,7 @@ def narrative_node(state: AgentState) -> AgentState:
              else "Drafted case narrative & EDD report")
     return {
         "narrative_result": result,
-        "events": [_event("NarrativeAgent", 5, "done", title,
+        "events": [_event("NarrativeAgent", 6, "done", title,
                           {"provider": result["llm_provider"],
                            "model": result["llm_model"],
                            "fallback_used": result["llm_fallback_used"],
@@ -227,7 +252,7 @@ def verifier_node(state: AgentState) -> AgentState:
     updates: AgentState = {
         "verification": v,
         "do_retry": will_retry,
-        "events": [_event("Verifier", 6, status, title,
+        "events": [_event("Verifier", 7, status, title,
                           {"passed": v["passed"], "summary": v["summary"],
                            "issues": v["issues"],
                            "verified_claims": v["verified_claims"],
@@ -244,7 +269,7 @@ def finalize_node(state: AgentState) -> AgentState:
     if state.get("error"):
         audit.log_event(case_id, "Orchestrator", "PIPELINE_ABORTED",
                         actor_type="system", summary=state["error"])
-        return {"events": [_event("Orchestrator", 7, "error",
+        return {"events": [_event("Orchestrator", 8, "error",
                                   "Pipeline aborted", {"error": state["error"]})]}
     audit.log_event(
         case_id, "Orchestrator", "PIPELINE_COMPLETE",
@@ -252,7 +277,7 @@ def finalize_node(state: AgentState) -> AgentState:
         summary="Draft ready for human approval gate.",
         detail={"verification_passed": state["verification"]["passed"]},
     )
-    return {"events": [_event("Orchestrator", 7, "done",
+    return {"events": [_event("Orchestrator", 8, "done",
                               "Draft ready — awaiting human approval",
                               {"verification_passed": state["verification"]["passed"],
                                "awaiting_human_review": True})]}
@@ -260,7 +285,7 @@ def finalize_node(state: AgentState) -> AgentState:
 
 # --------------------------------------------------------------------- edges --
 def _after_evidence(state: AgentState) -> str:
-    return "finalize" if state.get("error") else "gnn_score"
+    return "finalize" if state.get("error") else "sanctions_screening"
 
 
 def _after_verifier(state: AgentState) -> str:
@@ -278,6 +303,7 @@ def build_graph():
         return _compiled
     g = StateGraph(AgentState)
     g.add_node("gather_evidence", evidence_node)
+    g.add_node("sanctions_screening", screening_node)
     g.add_node("gnn_score", gnn_node)
     g.add_node("match_typology", typology_node)
     g.add_node("regulatory_context", regulatory_node)
@@ -287,7 +313,8 @@ def build_graph():
 
     g.add_edge(START, "gather_evidence")
     g.add_conditional_edges("gather_evidence", _after_evidence,
-                            {"gnn_score": "gnn_score", "finalize": "finalize"})
+                            {"sanctions_screening": "sanctions_screening", "finalize": "finalize"})
+    g.add_edge("sanctions_screening", "gnn_score")
     g.add_edge("gnn_score", "match_typology")
     g.add_edge("match_typology", "regulatory_context")
     g.add_edge("regulatory_context", "draft_narrative")
@@ -357,19 +384,38 @@ def run_case(case_id: str) -> Dict[str, Any]:
     return assemble_result(case_id, final)
 
 
-def _ensemble_risk(typology_match: Dict[str, Any], gnn: Dict[str, Any]) -> Dict[str, Any]:
-    """Combine the deterministic typology confidence with the GNN case risk."""
+def _ensemble_risk(typology_match: Dict[str, Any], gnn: Dict[str, Any],
+                   screening: Dict[str, Any]) -> Dict[str, Any]:
+    """Combine typology confidence + GNN case risk + sanctions-screening risk.
+
+    A sanctions match is a hard escalation — it forces Critical regardless of the
+    other signals (a sanctions nexus must be frozen/escalated independent of any
+    laundering typology)."""
     typ_conf = float(typology_match.get("confidence", 0.0))
-    if gnn.get("available"):
-        gnn_risk = float(gnn.get("case_risk", 0.0))
-        overall = round(0.5 * typ_conf + 0.5 * gnn_risk, 3)
-        components = {"typology_confidence": round(typ_conf, 3), "gnn_case_risk": round(gnn_risk, 3)}
+    gnn_available = bool(gnn.get("available"))
+    gnn_risk = float(gnn.get("case_risk", 0.0)) if gnn_available else 0.0
+    scr_risk = float(screening.get("screening_risk", 0.0))
+
+    if gnn_available:
+        base = 0.45 * typ_conf + 0.35 * gnn_risk + 0.20 * scr_risk
     else:
-        overall = round(typ_conf, 3)
-        components = {"typology_confidence": round(typ_conf, 3), "gnn_case_risk": None}
+        base = 0.7 * typ_conf + 0.3 * scr_risk
+    overall = round(min(1.0, base), 3)
+
+    sanctions_override = scr_risk >= 1.0
+    if sanctions_override:
+        overall = max(overall, 0.95)
     band = ("Critical" if overall >= 0.85 else "High" if overall >= 0.6
             else "Medium" if overall >= 0.4 else "Low")
-    return {"overall_risk": overall, "risk_band": band, "components": components}
+    return {
+        "overall_risk": overall, "risk_band": band,
+        "sanctions_override": sanctions_override,
+        "components": {
+            "typology_confidence": round(typ_conf, 3),
+            "gnn_case_risk": round(gnn_risk, 3) if gnn_available else None,
+            "screening_risk": round(scr_risk, 3),
+        },
+    }
 
 
 def _graph_with_gnn(evidence: Dict[str, Any], gnn: Dict[str, Any]) -> Dict[str, Any]:
@@ -386,6 +432,7 @@ def assemble_result(case_id: str, state: AgentState) -> Dict[str, Any]:
     if state.get("error"):
         return {"case_id": case_id, "error": state["error"], "status": "ERROR"}
     gnn = state.get("gnn", {"available": False})
+    screening = state.get("screening", {"cleared": True, "screening_risk": 0.0})
     return {
         "case_id": case_id,
         "status": "AWAITING_HUMAN_REVIEW",
@@ -398,8 +445,9 @@ def assemble_result(case_id: str, state: AgentState) -> Dict[str, Any]:
             "counterparty_kyc": state["evidence"]["counterparty_kyc"],
             "graph": _graph_with_gnn(state["evidence"], gnn),
         },
+        "screening": screening,
         "gnn": gnn,
-        "risk": _ensemble_risk(state["typology_match"], gnn),
+        "risk": _ensemble_risk(state["typology_match"], gnn, screening),
         "typology_match": state["typology_match"],
         "regulatory": state["regulatory"],
         "narrative": state["narrative_result"]["narrative"],

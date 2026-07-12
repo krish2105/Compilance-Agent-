@@ -3,6 +3,7 @@ import { BrainCircuit, Flag, Target } from "lucide-react";
 import type { InvestigationResult } from "../lib/types";
 import { cx } from "../lib/utils";
 import GnnPanel from "./GnnPanel";
+import ScreeningPanel from "./ScreeningPanel";
 
 /** Shows the ranked typology match with a confidence meter + drivers + regulatory context. */
 export default function TypologyPanel({ result }: { result: InvestigationResult }) {
@@ -13,6 +14,7 @@ export default function TypologyPanel({ result }: { result: InvestigationResult 
 
   return (
     <div className="space-y-4">
+      <ScreeningPanel result={result} />
       <GnnPanel result={result} />
 
       <div className="glass p-4">

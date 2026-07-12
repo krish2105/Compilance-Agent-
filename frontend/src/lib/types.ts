@@ -167,7 +167,36 @@ export interface GnnResult {
 export interface RiskResult {
   overall_risk: number;
   risk_band: "Low" | "Medium" | "High" | "Critical";
-  components: { typology_confidence: number; gnn_case_risk: number | null };
+  sanctions_override?: boolean;
+  components: {
+    typology_confidence: number;
+    gnn_case_risk: number | null;
+    screening_risk?: number;
+  };
+}
+
+export interface ScreeningResult {
+  cleared: boolean;
+  screening_risk: number;
+  risk_level: string;
+  name_hits: {
+    matched_entry: string;
+    list_id: string;
+    type: string;
+    program: string;
+    country: string;
+    score: number;
+    query: string;
+    screened_account?: string;
+    is_subject?: boolean;
+  }[];
+  pep_hits: unknown[];
+  pep_flagged: { account: string; name: string; is_subject: boolean; source: string }[];
+  jurisdiction_hits: { country: string; status: string; program: string }[];
+  sanctioned_jurisdictions: { country: string; status: string; program: string }[];
+  total_hits: number;
+  watchlist: Record<string, unknown>;
+  summary: string;
 }
 
 export interface InvestigationResult {
@@ -182,6 +211,7 @@ export interface InvestigationResult {
     counterparty_kyc: Record<string, Kyc>;
     graph?: CaseGraph;
   };
+  screening?: ScreeningResult;
   gnn?: GnnResult;
   risk?: RiskResult;
   typology_match: TypologyMatch;
