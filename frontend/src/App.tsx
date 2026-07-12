@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Activity, LayoutDashboard, ListChecks, LogOut, ShieldHalf, TriangleAlert, UserCircle2 } from "lucide-react";
+import { Activity, LayoutDashboard, ListChecks, LogOut, ShieldHalf, TriangleAlert, UserCircle2, Users } from "lucide-react";
 import CaseDetail from "./components/CaseDetail";
 import CaseList from "./components/CaseList";
 import Dashboard from "./components/Dashboard";
 import LoginScreen from "./components/LoginScreen";
+import TeamPanel from "./components/TeamPanel";
 import ThemeToggle from "./components/ThemeToggle";
 import { fetchHealth } from "./lib/api";
 import { useUi } from "./lib/store";
@@ -49,7 +50,15 @@ export default function App() {
           </div>
 
           <div className="ml-4 hidden items-center gap-1 rounded-xl border border-line bg-surface-raised/60 p-1 md:flex">
-            {([["cases", "Cases", <ListChecks size={14} />], ["dashboard", "Dashboard", <LayoutDashboard size={14} />]] as const).map(
+            {(
+              [
+                ["cases", "Cases", <ListChecks size={14} />],
+                ["dashboard", "Dashboard", <LayoutDashboard size={14} />],
+                ...(user?.role === "admin"
+                  ? [["team", "Team", <Users size={14} />] as const]
+                  : []),
+              ] as const
+            ).map(
               ([v, label, icon]) => (
                 <button
                   key={v}
@@ -118,6 +127,10 @@ export default function App() {
       {view === "dashboard" ? (
         <main className="mx-auto w-full max-w-[1500px] flex-1 overflow-y-auto p-4">
           <Dashboard />
+        </main>
+      ) : view === "team" ? (
+        <main className="mx-auto w-full max-w-[1500px] flex-1 overflow-y-auto p-4">
+          <TeamPanel />
         </main>
       ) : (
         <main className="mx-auto grid w-full max-w-[1500px] flex-1 grid-cols-1 gap-4 overflow-hidden p-4 lg:grid-cols-[360px_1fr]">

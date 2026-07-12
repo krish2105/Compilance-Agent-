@@ -14,8 +14,8 @@ interface UiState {
   toggleTheme: () => void;
   selectedCaseId: string | null;
   selectCase: (id: string | null) => void;
-  view: "cases" | "dashboard";
-  setView: (v: "cases" | "dashboard") => void;
+  view: "cases" | "dashboard" | "team";
+  setView: (v: "cases" | "dashboard" | "team") => void;
   reviewer: string;
   setReviewer: (name: string) => void;
 

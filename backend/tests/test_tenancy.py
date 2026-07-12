@@ -56,6 +56,44 @@ def test_same_username_across_tenants_is_allowed():
         db.close()
 
 
+def test_team_management_scoped_and_self_lockout_guarded():
+    """Admin adds/updates members within their own org; can't self-demote/deactivate."""
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    _setup()
+    c = TestClient(app)
+    tok = c.post("/api/auth/register-org",
+                 json={"org_name": "Team Co", "username": "boss", "password": "bosspass"}).json()["token"]
+    H = {"Authorization": f"Bearer {tok}"}
+
+    # Add an analyst to this org.
+    r = c.post("/api/auth/register", headers=H,
+               json={"username": "ana", "password": "anapass", "role": "analyst"})
+    assert r.status_code == 200 and r.json()["user"]["role"] == "analyst"
+
+    # Members list is scoped to this org (boss + ana = 2).
+    users = c.get("/api/auth/users", headers=H).json()
+    assert {u["username"] for u in users} == {"boss", "ana"}
+
+    # Promote ana to mlro.
+    r = c.patch("/api/auth/users/ana", headers=H, json={"role": "mlro"})
+    assert r.status_code == 200 and r.json()["user"]["role"] == "mlro"
+
+    # Deactivate ana, then a login attempt as ana fails.
+    assert c.patch("/api/auth/users/ana", headers=H, json={"active": False}).status_code == 200
+    assert c.post("/api/auth/login",
+                  json={"username": "ana", "password": "anapass", "org": "team-co"}).status_code == 401
+
+    # Self-lockout guards: boss cannot demote or deactivate themselves.
+    assert c.patch("/api/auth/users/boss", headers=H, json={"role": "analyst"}).status_code == 409
+    assert c.patch("/api/auth/users/boss", headers=H, json={"active": False}).status_code == 409
+
+    # Cannot manage a user in another org.
+    assert c.patch("/api/auth/users/nonexistent", headers=H, json={"role": "mlro"}).status_code == 404
+
+
 def test_review_isolation_between_tenants():
     _setup()
     case_id = "CASE-0001"

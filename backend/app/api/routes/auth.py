@@ -1,7 +1,7 @@
 """Auth + user-management routes (JWT login, current user, admin user CRUD)."""
 from __future__ import annotations
 
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -35,6 +35,11 @@ class RegisterOrgRequest(BaseModel):
     password: str = Field(min_length=6)
     email: str = ""
     full_name: str = ""
+
+
+class UpdateUserRequest(BaseModel):
+    role: Optional[str] = None
+    active: Optional[bool] = None
 
 
 def _tenant_for(principal: auth.Principal, db: Session) -> Tenant:
@@ -97,5 +102,34 @@ def register(req: RegisterRequest,
                 full_name=req.full_name, hashed_password=auth.hash_password(req.password),
                 role=req.role)
     db.add(user)
+    db.commit()
+    return {"ok": True, "user": user.to_public()}
+
+
+@router.patch("/users/{username}")
+def update_user(username: str, req: UpdateUserRequest,
+                principal: auth.Principal = Depends(auth.require_role("admin")),
+                db: Session = Depends(get_db)) -> dict:
+    """Change a teammate's role or active status — within the admin's own org.
+
+    Guards against self-lockout: an admin cannot demote or deactivate themselves.
+    """
+    tenant = _tenant_for(principal, db)
+    user = db.execute(
+        select(User).where(User.username == username, User.tenant_id == tenant.id)
+    ).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found in this organization.")
+    is_self = user.username == principal.username
+    if req.role is not None:
+        if req.role not in ROLES:
+            raise HTTPException(status_code=422, detail=f"role must be one of {ROLES}")
+        if is_self and req.role != "admin":
+            raise HTTPException(status_code=409, detail="You cannot remove your own admin role.")
+        user.role = req.role
+    if req.active is not None:
+        if is_self and req.active is False:
+            raise HTTPException(status_code=409, detail="You cannot deactivate your own account.")
+        user.active = req.active
     db.commit()
     return {"ok": True, "user": user.to_public()}

@@ -49,6 +49,49 @@ export async function login(
   return handle(res);
 }
 
+export interface TeamMember {
+  username: string;
+  email: string;
+  full_name: string;
+  role: "analyst" | "mlro" | "admin";
+  active: boolean;
+}
+
+/** List members of the caller's organization (admin only). */
+export async function listUsers(): Promise<TeamMember[]> {
+  const res = await fetch(`${API_URL}/api/auth/users`, { headers: headers() });
+  return handle<TeamMember[]>(res);
+}
+
+/** Add a member to the caller's organization (admin only). */
+export async function addUser(payload: {
+  username: string;
+  password: string;
+  role: string;
+  email?: string;
+  full_name?: string;
+}): Promise<{ ok: boolean; user: TeamMember }> {
+  const res = await fetch(`${API_URL}/api/auth/register`, {
+    method: "POST",
+    headers: headers(true),
+    body: JSON.stringify(payload),
+  });
+  return handle(res);
+}
+
+/** Change a member's role or active status (admin only). */
+export async function updateUser(
+  username: string,
+  patch: { role?: string; active?: boolean },
+): Promise<{ ok: boolean; user: TeamMember }> {
+  const res = await fetch(`${API_URL}/api/auth/users/${encodeURIComponent(username)}`, {
+    method: "PATCH",
+    headers: headers(true),
+    body: JSON.stringify(patch),
+  });
+  return handle(res);
+}
+
 /** Public self-serve onboarding — create a new organization + its first admin user. */
 export async function registerOrg(payload: {
   org_name: string;
