@@ -1,0 +1,945 @@
+{
+  "info": {
+    "name": "ComplianceAgent API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Auto-generated from the FastAPI OpenAPI spec."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://complianceagent-backend.onrender.com"
+    },
+    {
+      "key": "apiKey",
+      "value": "compliance-demo-2026"
+    }
+  ],
+  "item": [
+    {
+      "name": "GET /api/health",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "health"
+          ]
+        },
+        "description": "Health\n\nLiveness + a summary of the configured LLM strategy and data readiness."
+      }
+    },
+    {
+      "name": "GET /api/health/llm",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/health/llm",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "health",
+            "llm"
+          ]
+        },
+        "description": "Llm Diagnostic\n\nLive LLM check: runs a tiny generation and reports which provider answered\n(and, on fallback, the exact error). Handy for diagnosing why Gemini isn't\nbeing used. Public \u2014 returns no secrets."
+      }
+    },
+    {
+      "name": "GET /metrics",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/metrics",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "metrics"
+          ]
+        },
+        "description": "Prometheus Metrics\n\nPrometheus exposition endpoint (scrape target for Prometheus/Grafana). Public."
+      }
+    },
+    {
+      "name": "GET /api/jobs/{job_id}",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/jobs/{job_id}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "jobs",
+            "{job_id}"
+          ]
+        },
+        "description": "Get Job\n\nPoll an async investigation job."
+      }
+    },
+    {
+      "name": "GET /api/model",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/model",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "model"
+          ]
+        },
+        "description": "Model Info\n\nGNN model registry (versioned model card + metrics) + live drift check."
+      }
+    },
+    {
+      "name": "GET /api/dashboard",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/dashboard",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "dashboard"
+          ]
+        },
+        "description": "Dashboard\n\nPortfolio analytics (alert volume, dispositions, SAR rate, risk-band + typology\ndistribution) scoped to the caller's tenant. Cached per tenant."
+      }
+    },
+    {
+      "name": "GET /api/admin/sanctions",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/admin/sanctions",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "sanctions"
+          ]
+        },
+        "description": "Sanctions Status\n\nSanctions watchlist status: live OFAC/UN counts, source, freshness."
+      }
+    },
+    {
+      "name": "POST /api/admin/sanctions/refresh",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/admin/sanctions/refresh",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "sanctions",
+            "refresh"
+          ]
+        },
+        "description": "Sanctions Refresh\n\nPull the live public OFAC + UN lists and reload the watchlist (may take ~30s).\n\nNote: on an ephemeral free-tier container this updates the in-memory snapshot\nuntil the next restart; the committed snapshot (kept fresh by the scheduled cron)\nis the durable baseline."
+      }
+    },
+    {
+      "name": "GET /api/responsible-ai",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/responsible-ai",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "responsible-ai"
+          ]
+        },
+        "description": "Responsible Ai\n\nGolden-set groundedness + red-team pass rate + bias/fairness audit.\n\nThe full suite runs ~40 multi-agent investigations, so it is precomputed at image\nbuild time (see Dockerfile) and served from that artifact \u2014 instant, no per-request\nLLM calls. Falls back to a live run only if the artifact is missing."
+      }
+    },
+    {
+      "name": "POST /api/auth/login",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "login"
+          ]
+        },
+        "description": "Login\n\n"
+      }
+    },
+    {
+      "name": "POST /api/auth/register-org",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/register-org",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "register-org"
+          ]
+        },
+        "description": "Register Org\n\nPublic self-serve onboarding \u2014 create a new organization + its first admin."
+      }
+    },
+    {
+      "name": "POST /api/auth/change-password",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/change-password",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "change-password"
+          ]
+        },
+        "description": "Change Password\n\nSelf-service password change. Rotates token_version \u2192 all existing sessions are\nrevoked; returns a fresh token so the caller stays logged in."
+      }
+    },
+    {
+      "name": "GET /api/auth/me",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "me"
+          ]
+        },
+        "description": "Me\n\n"
+      }
+    },
+    {
+      "name": "GET /api/auth/billing",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/billing",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "billing"
+          ]
+        },
+        "description": "Billing\n\nCurrent plan, limits and usage for the caller's organization."
+      }
+    },
+    {
+      "name": "POST /api/auth/billing/plan",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/billing/plan",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "billing",
+            "plan"
+          ]
+        },
+        "description": "Change Plan\n\nChange the org plan (billing stub \u2014 a real Stripe webhook would set this)."
+      }
+    },
+    {
+      "name": "PATCH /api/auth/org",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/org",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "org"
+          ]
+        },
+        "description": "Update Org\n\nRename the organization's display name (admin only)."
+      }
+    },
+    {
+      "name": "GET /api/auth/users",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/users",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "users"
+          ]
+        },
+        "description": "List Users\n\n"
+      }
+    },
+    {
+      "name": "POST /api/auth/register",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "register"
+          ]
+        },
+        "description": "Register\n\nAdmin adds a teammate \u2014 scoped to the admin's own organization."
+      }
+    },
+    {
+      "name": "PATCH /api/auth/users/{username}",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/users/{username}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "users",
+            "{username}"
+          ]
+        },
+        "description": "Update User\n\nChange a teammate's role or active status \u2014 within the admin's own org.\n\nGuards against self-lockout: an admin cannot demote or deactivate themselves."
+      }
+    },
+    {
+      "name": "GET /api/cases",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/cases",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "cases"
+          ]
+        },
+        "description": "List Cases\n\nThe shared demo book + THIS tenant's uploaded cases, with its review status."
+      }
+    },
+    {
+      "name": "GET /api/cases/{case_id}",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/cases/{case_id}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "cases",
+            "{case_id}"
+          ]
+        },
+        "description": "Get Case Detail\n\nFull case detail. Runs (or reuses a cached) investigation and attaches THIS\ntenant's human-review state. Does NOT finalize anything."
+      }
+    },
+    {
+      "name": "POST /api/cases/{case_id}/investigate",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/cases/{case_id}/investigate",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "cases",
+            "{case_id}",
+            "investigate"
+          ]
+        },
+        "description": "Investigate\n\nRun the multi-agent pipeline for a case (non-streaming) and cache it."
+      }
+    },
+    {
+      "name": "POST /api/cases/{case_id}/chat",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/cases/{case_id}/chat",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "cases",
+            "{case_id}",
+            "chat"
+          ]
+        },
+        "description": "Chat\n\nConversational Q&A over a case (planner + tool use + case memory)."
+      }
+    },
+    {
+      "name": "GET /api/cases/{case_id}/similar",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/cases/{case_id}/similar",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "cases",
+            "{case_id}",
+            "similar"
+          ]
+        },
+        "description": "Similar\n\nCase memory: the most similar prior cases + their dispositions."
+      }
+    },
+    {
+      "name": "POST /api/cases/{case_id}/investigate/async",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/cases/{case_id}/investigate/async",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "cases",
+            "{case_id}",
+            "investigate",
+            "async"
+          ]
+        },
+        "description": "Investigate Async\n\nSubmit the investigation as a background job (non-blocking) \u2192 returns a job id\nto poll at GET /api/jobs/{job_id}."
+      }
+    },
+    {
+      "name": "GET /api/cases/{case_id}/audit",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/cases/{case_id}/audit",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "cases",
+            "{case_id}",
+            "audit"
+          ]
+        },
+        "description": "Get Audit\n\nThe persisted audit trail: every agent step + every human action."
+      }
+    },
+    {
+      "name": "GET /api/cases/{case_id}/audit.csv",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/cases/{case_id}/audit.csv",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "cases",
+            "{case_id}",
+            "audit.csv"
+          ]
+        },
+        "description": "Export Audit Csv\n\nDownload the case audit trail as CSV (compliance record-keeping)."
+      }
+    },
+    {
+      "name": "GET /api/cases/{case_id}/sar",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/cases/{case_id}/sar",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "cases",
+            "{case_id}",
+            "sar"
+          ]
+        },
+        "description": "Get Sar\n\nStructured STR/SAR record (coded activity + subject + indicators + narrative)\nplus the filing SLA. Draft for the MLRO \u2014 not filed."
+      }
+    },
+    {
+      "name": "GET /api/cases/{case_id}/report",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/cases/{case_id}/report",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "cases",
+            "{case_id}",
+            "report"
+          ]
+        },
+        "description": "Get Report\n\nSelf-contained printable HTML case report (browser \u2192 PDF)."
+      }
+    },
+    {
+      "name": "GET /api/cases/{case_id}/sar.xml",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/cases/{case_id}/sar.xml",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "cases",
+            "{case_id}",
+            "sar.xml"
+          ]
+        },
+        "description": "Get Sar Xml\n\nDownload the STR as goAML-schema XML (the UAE FIU / UNODC filing format)."
+      }
+    },
+    {
+      "name": "POST /api/cases/{case_id}/review",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/cases/{case_id}/review",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "cases",
+            "{case_id}",
+            "review"
+          ]
+        },
+        "description": "Submit Review\n\nThe enforced human approval gate. RBAC: any authenticated analyst may EDIT a\ndraft, but only an MLRO/admin may APPROVE / REJECT / ESCALATE (finalize)."
+      }
+    },
+    {
+      "name": "GET /api/cases/{case_id}/stream",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/cases/{case_id}/stream",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "cases",
+            "{case_id}",
+            "stream"
+          ]
+        },
+        "description": "Stream Investigation\n\nStream the investigation for `case_id` as SSE."
+      }
+    },
+    {
+      "name": "GET /api/ingest/template",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/ingest/template",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "ingest",
+            "template"
+          ]
+        },
+        "description": "Template\n\nA starter CSV showing the accepted columns."
+      }
+    },
+    {
+      "name": "POST /api/ingest/transactions",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/ingest/transactions",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "ingest",
+            "transactions"
+          ]
+        },
+        "description": "Ingest Json\n\nIngest transactions as JSON rows (any authenticated org member)."
+      }
+    },
+    {
+      "name": "POST /api/ingest/csv",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/ingest/csv",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "ingest",
+            "csv"
+          ]
+        },
+        "description": "Ingest Csv\n\nIngest a CSV file upload."
+      }
+    },
+    {
+      "name": "GET /",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            ""
+          ]
+        },
+        "description": "Root\n\n"
+      }
+    }
+  ]
+}

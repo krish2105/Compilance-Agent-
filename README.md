@@ -15,6 +15,10 @@ approval gate** — it never auto-clears or auto-reports.
 
 `LangGraph` · `FastAPI` · `React + TypeScript` · `DuckDB` · `hybrid RAG (BM25+dense+rerank)` · `GNN detector (from-scratch NumPy)` · `NetworkX graph analytics` · `Gemini / Groq / offline` · `eval gates` · `Langfuse observability` · `OWASP guardrails` · **$0/month**
 
+![Demo](docs/demo.gif)
+
+📐 [Architecture](docs/ARCHITECTURE.md) · 🧭 [ADRs](docs/adr/) · 📝 [Case study](docs/CASE_STUDY.md) · 🔌 [Postman collection](docs/ComplianceAgent.postman_collection.json) · 🗂️ [Model card](docs/MODEL_CARD.md) · [Data sheet](docs/DATA_SHEET.md)
+
 ### 🔗 Live demo
 - **App (Vercel):** https://frontend-three-pi-15.vercel.app
 - **API (Render):** https://complianceagent-backend.onrender.com/api/health
