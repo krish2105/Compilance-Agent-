@@ -21,6 +21,7 @@ import AuditLogViewer from "./AuditLogViewer";
 import EvidenceCitation from "./EvidenceCitation";
 import NarrativePanel from "./NarrativePanel";
 import ReasoningTracePanel from "./ReasoningTracePanel";
+import SarPanel from "./SarPanel";
 import TypologyPanel from "./TypologyPanel";
 
 type Tab = "narrative" | "evidence" | "typology" | "audit";
@@ -167,7 +168,10 @@ export default function CaseDetail() {
                   transition={{ duration: 0.2 }}
                 >
                   {tab === "narrative" && (
-                    <NarrativePanel result={result} editedNarrative={editedNarrative} />
+                    <div className="space-y-4">
+                      <NarrativePanel result={result} editedNarrative={editedNarrative} />
+                      <SarPanel caseId={selectedCaseId} />
+                    </div>
                   )}
                   {tab === "evidence" && <EvidenceCitation result={result} />}
                   {tab === "typology" && <TypologyPanel result={result} />}

@@ -11,11 +11,12 @@ from __future__ import annotations
 from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from app.agents import orchestrator
 from app.api import store
-from app.tools import audit, db, guardrails
+from app.tools import audit, db, guardrails, sar
 
 router = APIRouter(prefix="/api/cases", tags=["cases"])
 
@@ -85,6 +86,43 @@ def get_audit(case_id: str) -> dict:
         "events": audit.get_audit_trail(case_id),
         "reviews": audit.get_review_history(case_id),
     }
+
+
+def _result_and_case(case_id: str):
+    case = db.get_case(case_id)
+    if case is None:
+        raise HTTPException(status_code=404, detail=f"Case '{case_id}' not found.")
+    result = store.get_result(case_id)
+    if result is None:
+        result = orchestrator.run_case(case_id)
+        store.put_result(case_id, result)
+    return result, case
+
+
+@router.get("/{case_id}/sar")
+def get_sar(case_id: str) -> dict:
+    """Structured STR/SAR record (coded activity + subject + indicators + narrative)
+    plus the filing SLA. Draft for the MLRO — not filed."""
+    result, case = _result_and_case(case_id)
+    review = audit.get_latest_review(case_id)
+    edited = review.get("edited_narrative") if review else None
+    return sar.build_all(result, case, review, narrative_override=edited)
+
+
+@router.get("/{case_id}/sar.xml")
+def get_sar_xml(case_id: str):
+    """Download the STR as goAML-schema XML (the UAE FIU / UNODC filing format)."""
+    result, case = _result_and_case(case_id)
+    review = audit.get_latest_review(case_id)
+    edited = review.get("edited_narrative") if review else None
+    record = sar.build_sar_record(result, case, narrative_override=edited)
+    xml = sar.goaml_xml(record)
+    audit.log_event(case_id, "system", "SAR_XML_EXPORTED", actor_type="system",
+                    summary="goAML STR XML exported (draft).")
+    return Response(
+        content=xml, media_type="application/xml",
+        headers={"Content-Disposition": f'attachment; filename="STR_{case_id}_goAML.xml"'},
+    )
 
 
 @router.post("/{case_id}/review")

@@ -88,3 +88,27 @@ export async function submitReview(caseId: string, payload: ReviewPayload) {
 export function streamUrl(caseId: string): string {
   return `${API_URL}/api/cases/${caseId}/stream`;
 }
+
+export async function getSar(caseId: string): Promise<{
+  sar: Record<string, unknown>;
+  sla: Record<string, unknown>;
+  goaml_available: boolean;
+}> {
+  const res = await fetch(`${API_URL}/api/cases/${caseId}/sar`, { headers: headers() });
+  return handle(res);
+}
+
+/** Fetch the goAML XML (with auth header) and trigger a browser download. */
+export async function downloadSarXml(caseId: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/cases/${caseId}/sar.xml`, { headers: headers() });
+  if (!res.ok) throw new Error(`Export failed: ${res.status}`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `STR_${caseId}_goAML.xml`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}

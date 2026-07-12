@@ -237,6 +237,15 @@ account-level transaction graph:
 - **Upgrade path:** a PyTorch-Geometric training script (GraphSAGE / temporal
   LAS-GNN) — see `requirements-gnn.txt`.
 
+## Regulatory filing — SAR/STR + goAML export
+
+A completed investigation generates a **draft STR** ([`app/tools/sar.py`](backend/app/tools/sar.py)):
+coded suspicious-activity category (FinCEN SAR Item-35-style, mapped per typology) + subject +
+indicators + narrative, plus a **filing SLA** (deadline + status from the human determination date).
+It exports as **goAML XML** — the UNODC/UAE-FIU STR filing format — downloadable from the UI
+(`GET /api/cases/{id}/sar.xml`). Draft for the MLRO's filing decision; the tool prepares the STR, it
+does not file it.
+
 ## Advanced capabilities (graph analytics · real-data ingestion)
 
 - **Graph analytics ([`app/tools/graph.py`](backend/app/tools/graph.py)).** Each case's transactions are
