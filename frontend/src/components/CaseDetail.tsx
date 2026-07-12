@@ -76,58 +76,63 @@ export default function CaseDetail() {
         key={selectedCaseId}
         initial={{ opacity: 0, y: -6 }}
         animate={{ opacity: 1, y: 0 }}
-        className="glass mb-4 flex flex-wrap items-center gap-3 p-4"
+        className="glass mb-4 p-4"
       >
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
+        {/* Title + priority + summary (own row, never overlaps the actions) */}
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="font-mono text-sm font-bold text-ink">{selectedCaseId}</span>
             {priority && caseInfo && (
-              <span className={cx("chip", priority.chip)}>
+              <span className={cx("chip shrink-0", priority.chip)}>
                 <span className={cx("h-1.5 w-1.5 rounded-full", priority.dot)} /> {priority.label}
               </span>
             )}
           </div>
           {caseInfo && (
-            <p className="mt-1 line-clamp-1 text-[13px] text-ink-muted">{caseInfo.alert_summary}</p>
+            <p className="mt-1 line-clamp-2 text-[13px] text-ink-muted">{caseInfo.alert_summary}</p>
           )}
         </div>
-        {result && !result.error && (
-          <>
-            <button
-              onClick={() => openCaseReport(selectedCaseId).catch(() => undefined)}
-              className="btn-ghost"
-              title="Open a printable case report (save as PDF)"
-            >
-              <FileDown size={15} /> Report
-            </button>
-            <button
-              onClick={() => downloadAuditCsv(selectedCaseId).catch(() => undefined)}
-              className="btn-ghost"
-              title="Export the audit trail as CSV"
-            >
-              <FileDown size={15} /> Audit CSV
-            </button>
-          </>
-        )}
-        <button
-          onClick={() => stream.start(selectedCaseId)}
-          disabled={stream.phase === "running"}
-          className="btn-brand"
-        >
-          {stream.phase === "running" ? (
+
+        {/* Actions — their own wrapping row; full-width Re-run on mobile */}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {result && !result.error && (
             <>
-              <RotateCw size={15} className="animate-spin" /> Investigating…
-            </>
-          ) : stream.phase === "done" || result ? (
-            <>
-              <RotateCw size={15} /> Re-run
-            </>
-          ) : (
-            <>
-              <Play size={15} /> Run investigation
+              <button
+                onClick={() => openCaseReport(selectedCaseId).catch(() => undefined)}
+                className="btn-ghost flex-1 justify-center sm:flex-none"
+                title="Open a printable case report (save as PDF)"
+              >
+                <FileDown size={15} /> Report
+              </button>
+              <button
+                onClick={() => downloadAuditCsv(selectedCaseId).catch(() => undefined)}
+                className="btn-ghost flex-1 justify-center sm:flex-none"
+                title="Export the audit trail as CSV"
+              >
+                <FileDown size={15} /> Audit CSV
+              </button>
             </>
           )}
-        </button>
+          <button
+            onClick={() => stream.start(selectedCaseId)}
+            disabled={stream.phase === "running"}
+            className="btn-brand w-full justify-center sm:ms-auto sm:w-auto"
+          >
+            {stream.phase === "running" ? (
+              <>
+                <RotateCw size={15} className="animate-spin" /> Investigating…
+              </>
+            ) : stream.phase === "done" || result ? (
+              <>
+                <RotateCw size={15} /> Re-run
+              </>
+            ) : (
+              <>
+                <Play size={15} /> Run investigation
+              </>
+            )}
+          </button>
+        </div>
       </motion.div>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">

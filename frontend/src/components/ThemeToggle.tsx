@@ -1,8 +1,9 @@
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { Moon, Sun } from "lucide-react";
 import { useUi } from "../lib/store";
 
-/** Animated light/dark toggle with a sliding thumb and clear iconography. */
+/** Single round light/dark toggle — shows the moon in dark mode, the sun in light,
+ * with an animated swap. Matches the other header icon buttons. */
 export default function ThemeToggle() {
   const { theme, toggleTheme } = useUi();
   const dark = theme === "dark";
@@ -11,18 +12,20 @@ export default function ThemeToggle() {
       onClick={toggleTheme}
       aria-label={`Switch to ${dark ? "light" : "dark"} mode`}
       title={`Switch to ${dark ? "light" : "dark"} mode`}
-      className="relative flex h-9 w-16 items-center rounded-full border border-line bg-surface-raised/70 px-1 backdrop-blur transition-colors hover:border-brand/50"
+      className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-line bg-surface-raised/70 text-ink-muted transition-colors hover:border-brand/50 hover:text-brand"
     >
-      <motion.span
-        layout
-        transition={{ type: "spring", stiffness: 500, damping: 32 }}
-        className="absolute z-10 flex h-7 w-7 items-center justify-center rounded-full bg-brand text-white shadow-glow"
-        style={{ left: dark ? 4 : "calc(100% - 1.75rem - 4px)" }}
-      >
-        {dark ? <Moon size={15} /> : <Sun size={15} />}
-      </motion.span>
-      <Sun size={14} className="ml-1 text-priority-high/80" />
-      <Moon size={14} className="ml-auto mr-1 text-accent/80" />
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span
+          key={dark ? "moon" : "sun"}
+          initial={{ y: 12, opacity: 0, rotate: -30 }}
+          animate={{ y: 0, opacity: 1, rotate: 0 }}
+          exit={{ y: -12, opacity: 0, rotate: 30 }}
+          transition={{ duration: 0.18 }}
+          className="flex items-center justify-center"
+        >
+          {dark ? <Moon size={16} /> : <Sun size={16} />}
+        </motion.span>
+      </AnimatePresence>
     </button>
   );
 }
