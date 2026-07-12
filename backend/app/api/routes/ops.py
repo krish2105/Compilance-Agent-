@@ -43,6 +43,32 @@ def dashboard(principal: auth.Principal = Depends(auth.get_current_principal)) -
     return analytics.compute_dashboard(principal.tenant)
 
 
+@router.get("/api/admin/sanctions")
+def sanctions_status(_: auth.Principal = Depends(auth.require_role("admin"))) -> dict:
+    """Sanctions watchlist status: live OFAC/UN counts, source, freshness."""
+    from app.tools import sanctions
+    return sanctions.watchlist_stats()
+
+
+@router.post("/api/admin/sanctions/refresh")
+def sanctions_refresh(_: auth.Principal = Depends(auth.require_role("admin"))) -> dict:
+    """Pull the live public OFAC + UN lists and reload the watchlist (may take ~30s).
+
+    Note: on an ephemeral free-tier container this updates the in-memory snapshot
+    until the next restart; the committed snapshot (kept fresh by the scheduled cron)
+    is the durable baseline.
+    """
+    from app.tools import sanctions
+    from app.tools.sanctions_refresh import refresh_all
+
+    try:
+        result = refresh_all()
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"Feed refresh failed: {e}")
+    sanctions.reload_watchlist()
+    return {"ok": True, **result, "status": sanctions.watchlist_stats()}
+
+
 @router.get("/api/responsible-ai")
 def responsible_ai() -> dict:
     """Golden-set groundedness + red-team pass rate + bias/fairness audit.

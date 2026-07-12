@@ -1,0 +1,36 @@
+name: Sanctions watchlist refresh
+
+# Keeps the committed OFAC + UN snapshot fresh so the deployed image ships current
+# sanctions data. Runs weekly; commit → auto-deploy picks it up.
+on:
+  schedule:
+    - cron: "0 6 * * 1" # every Monday 06:00 UTC
+  workflow_dispatch: {}   # allow manual runs
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install httpx
+        run: pip install httpx
+      - name: Pull live OFAC + UN lists
+        working-directory: backend
+        run: python -m app.tools.sanctions_refresh
+      - name: Commit snapshot if changed
+        run: |
+          if [[ -n "$(git status --porcelain backend/data/watchlists/live_watchlist.json)" ]]; then
+            git config user.name "sanctions-refresh-bot"
+            git config user.email "bot@users.noreply.github.com"
+            git add backend/data/watchlists/live_watchlist.json
+            git commit -m "chore: refresh live OFAC/UN sanctions snapshot"
+            git push
+          else
+            echo "No change in sanctions snapshot."
+          fi

@@ -338,6 +338,20 @@ Plus the core guardrails (all genuinely functional, not cosmetic):
 
 ---
 
+## Real sanctions data (live OFAC + UN) & data ingestion
+
+- **Live watchlists** — the screening engine loads a **real committed snapshot of the
+  public OFAC SDN + UN consolidated lists** (~8,000 entities, [`sanctions_refresh.py`](backend/app/tools/sanctions_refresh.py))
+  on top of the demo entries. Fuzzy matching uses a **2-char blocking index** so it stays
+  fast (~40 ms/name) at that scale. Real names match exactly and through typos
+  (e.g. "Anglo Caribean Co" → *ANGLO-CARIBBEAN CO., LTD.*, OFAC CUBA).
+- **Auto-refresh** — a weekly **GitHub Actions cron** ([`sanctions-refresh.yml`](.github/workflows/sanctions-refresh.yml))
+  re-pulls the feeds and commits the snapshot; an admin endpoint (`POST /api/admin/sanctions/refresh`)
+  refreshes on demand.
+- **Bring-your-own-data ingestion** — a **column-mapping wizard** maps *any* bank's CSV
+  export to the schema, with **preview, validation and dedupe** (duplicate transaction-ids
+  and self-transfers dropped) before a case is created and run through the full pipeline.
+
 ## Multi-tenancy & SaaS onboarding
 
 Each **organization is an isolated workspace** ([`app/models.py`](backend/app/models.py), [`app/auth.py`](backend/app/auth.py)):

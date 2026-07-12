@@ -109,26 +109,103 @@ def _token_sort_ratio(a: str, b: str) -> float:
     return jaro_winkler(ta, tb)
 
 
+# --- Live watchlist loading (real OFAC/UN snapshot) + fast blocking index ---------
+import json  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+_LIVE_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "watchlists" / "live_watchlist.json"
+_watchlist_cache: List[Dict[str, Any]] = None  # type: ignore[assignment]
+_block_index: Dict[str, List[int]] = None  # type: ignore[assignment]
+_live_meta: Dict[str, Any] = {"loaded": False}
+
+
+def _load_live() -> List[Dict[str, Any]]:
+    try:
+        if _LIVE_PATH.exists():
+            data = json.loads(_LIVE_PATH.read_text())
+            _live_meta.update({"loaded": True, "count": data.get("count", 0),
+                               "generated_at": data.get("generated_at"),
+                               "sources": data.get("sources", {})})
+            return data.get("entries", [])
+    except Exception:  # noqa: BLE001 - never break screening on a bad snapshot
+        pass
+    return []
+
+
+def _block_keys(name: str) -> set:
+    """Blocking keys for a name: the first 2 chars of each of its tokens (or the whole
+    token if shorter). Tight enough to keep the candidate set small at 8k+ names."""
+    return {t[:2] for t in _normalize(name).split() if t}
+
+
+def get_watchlist() -> List[Dict[str, Any]]:
+    """The demo entries (so demo cases still hit) + the real OFAC/UN snapshot. Cached."""
+    global _watchlist_cache, _block_index
+    if _watchlist_cache is None:
+        _watchlist_cache = list(WATCHLIST) + _load_live()
+        # Blocking index: bucket each entry by 2-char token prefixes, so a query only
+        # fuzzy-compares against a small candidate set (fast even at 8k+ names).
+        _block_index = {}
+        for i, e in enumerate(_watchlist_cache):
+            names = [e["name"]] + e.get("aliases", [])
+            for n in names:
+                for k in _block_keys(n):
+                    _block_index.setdefault(k, []).append(i)
+    return _watchlist_cache
+
+
+def watchlist_source() -> Dict[str, Any]:
+    get_watchlist()
+    return {"live_loaded": _live_meta.get("loaded", False),
+            "live_count": _live_meta.get("count", 0),
+            "generated_at": _live_meta.get("generated_at"),
+            "sources": _live_meta.get("sources", {}),
+            "total_entries": len(_watchlist_cache or [])}
+
+
+def reload_watchlist() -> None:
+    """Drop the cache so the next screen reloads the (refreshed) snapshot."""
+    global _watchlist_cache, _block_index
+    _watchlist_cache = None
+    _block_index = None
+    _live_meta["loaded"] = False
+
+
 def match_name(query: str, threshold: float = _DEFAULT_THRESHOLD) -> List[Dict[str, Any]]:
-    """Fuzzy-match a name against the watchlist; return hits above threshold."""
+    """Fuzzy-match a name against the watchlist; return hits above threshold.
+
+    Uses a first-character blocking index so screening stays fast even against the
+    full real OFAC/UN snapshot (thousands of names)."""
     q = _normalize(query)
     if not q:
         return []
+    watchlist = get_watchlist()
+    # Candidate set = entries sharing a 2-char token prefix with the query (+ demo entries).
+    cand_idx = set(range(len(WATCHLIST)))  # always screen the demo entries
+    for k in _block_keys(query):
+        cand_idx.update(_block_index.get(k, []))
+
+    qlen = len(q)
     hits = []
-    for entry in WATCHLIST:
+    for i in cand_idx:
+        entry = watchlist[i]
         candidates = [entry["name"]] + entry.get("aliases", [])
         best = 0.0
         for cand in candidates:
-            score = max(jaro_winkler(q, _normalize(cand)), _token_sort_ratio(q, _normalize(cand)))
+            cn = _normalize(cand)
+            # Cheap length pre-filter — very different lengths can't clear the threshold.
+            if abs(len(cn) - qlen) > max(qlen, len(cn)) * 0.5:
+                continue
+            score = max(jaro_winkler(q, cn), _token_sort_ratio(q, cn))
             best = max(best, score)
         if best >= threshold:
             hits.append({
                 "matched_entry": entry["name"], "list_id": entry["id"],
                 "type": entry["type"], "program": entry["program"],
-                "country": entry["country"], "score": round(best, 3),
+                "country": entry.get("country", ""), "score": round(best, 3),
                 "query": query,
             })
-    return sorted(hits, key=lambda h: h["score"], reverse=True)
+    return sorted(hits, key=lambda h: h["score"], reverse=True)[:20]
 
 
 def screen_jurisdiction(country: str) -> Dict[str, Any]:
@@ -142,10 +219,17 @@ def screen_jurisdiction(country: str) -> Dict[str, Any]:
 
 
 def watchlist_stats() -> Dict[str, Any]:
+    src = watchlist_source()
     return {
-        "watchlist_entries": len(WATCHLIST),
+        "watchlist_entries": src["total_entries"],
+        "demo_entries": len(WATCHLIST),
+        "live_entries": src["live_count"],
+        "live_loaded": src["live_loaded"],
+        "live_generated_at": src["generated_at"],
+        "live_sources": src["sources"],
         "sanctioned_jurisdictions": len(SANCTIONED_JURISDICTIONS),
         "high_risk_jurisdictions": len(HIGH_RISK_JURISDICTIONS),
         "threshold": _DEFAULT_THRESHOLD,
-        "source": "illustrative snapshot; refresh via sanctions_refresh.py (OFAC/UN)",
+        "source": ("live OFAC + UN snapshot" if src["live_loaded"]
+                   else "illustrative snapshot (run sanctions_refresh to pull live)"),
     }

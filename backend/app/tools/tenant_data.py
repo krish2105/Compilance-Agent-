@@ -82,7 +82,17 @@ def ingest_case(tenant: str, rows: List[Dict[str, Any]], summary: Optional[str] 
         raise IngestError(f"Too many rows ({len(rows)}); max {MAX_ROWS} per upload.")
 
     base = datetime.now(timezone.utc).replace(microsecond=0)
-    norm = [_norm_row(r, i, base) for i, r in enumerate(rows)]
+    norm_all = [_norm_row(r, i, base) for i, r in enumerate(rows)]
+    # Data-quality gate: drop duplicate transaction_ids (keep first) + self-loops.
+    seen, norm, dropped = set(), [], 0
+    for t in norm_all:
+        if t["transaction_id"] in seen or t["sender_account"] == t["receiver_account"]:
+            dropped += 1
+            continue
+        seen.add(t["transaction_id"])
+        norm.append(t)
+    if not norm:
+        raise IngestError("All rows were duplicates or self-transfers — nothing to ingest.")
 
     # Subject = the account that sends most often (the one moving the money).
     subject = Counter(t["sender_account"] for t in norm).most_common(1)[0][0]
@@ -110,7 +120,11 @@ def ingest_case(tenant: str, rows: List[Dict[str, Any]], summary: Optional[str] 
         for t in norm:
             db.add(TenantTransaction(case_id=case_id, tenant=tenant, **t))
         db.commit()
-        return tc.to_case_dict() | {"transaction_count": len(norm)}
+        return tc.to_case_dict() | {
+            "transaction_count": len(norm),
+            "rows_received": len(rows),
+            "duplicates_dropped": dropped,
+        }
     finally:
         db.close()
 
