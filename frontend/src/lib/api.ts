@@ -112,9 +112,81 @@ export function streamUrl(caseId: string): string {
   return `${API_URL}/api/cases/${caseId}/stream`;
 }
 
+/**
+ * Portfolio analytics.
+ *
+ * Primary path: the backend `/api/dashboard` endpoint (richer — includes ensemble
+ * risk bands, typology mix and screening hit-rate). If that endpoint is unavailable
+ * (e.g. the backend hasn't picked up the latest deploy, or a cold-start timeout),
+ * we transparently fall back to computing the core analytics client-side from the
+ * case queue — so the dashboard is *always* populated, never a dead error screen.
+ */
 export async function getDashboard(): Promise<Record<string, any>> {
-  const res = await fetch(`${API_URL}/api/dashboard`, { headers: headers() });
-  return handle(res);
+  try {
+    // Bound the server call — the ensemble assessment can be slow on a cold free-tier
+    // instance; if it doesn't answer quickly we fall back rather than hang the page.
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 12_000);
+    let res: Response;
+    try {
+      res = await fetch(`${API_URL}/api/dashboard`, { headers: headers(), signal: ctrl.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+    if (res.ok) {
+      const data = (await res.json()) as Record<string, any>;
+      return { ...data, source: "server" };
+    }
+    throw new Error(String(res.status));
+  } catch {
+    // Graceful degradation — compute from the case book (always available & fast).
+    const cases = await listCases();
+    return computeClientDashboard(cases);
+  }
+}
+
+/** Client-side analytics from the case queue (used when the server endpoint is unavailable). */
+function computeClientDashboard(cases: CaseSummary[]): Record<string, any> {
+  const n = cases.length;
+  const inc = (o: Record<string, number>, k: string) => (o[k] = (o[k] ?? 0) + 1);
+
+  const by_priority: Record<string, number> = {};
+  const dispositions: Record<string, number> = {};
+  let pending = 0;
+  let finalized = 0;
+  let totalTx = 0;
+
+  for (const c of cases) {
+    inc(by_priority, c.priority ?? "Medium");
+    const status = c.review_status || "PENDING_REVIEW";
+    inc(dispositions, status);
+    if (status === "PENDING_REVIEW") pending += 1;
+    if (status.startsWith("APPROVED") || status.startsWith("ESCALATED")) finalized += 1;
+    totalTx += c.transaction_count ?? 0;
+  }
+
+  const critical_high = (by_priority.Critical ?? 0) + (by_priority.High ?? 0);
+  // Priority is the alert's own risk grade — a faithful proxy for the risk posture
+  // when the server-side ensemble assessment isn't reachable.
+  const order = ["Critical", "High", "Medium", "Low"];
+  const risk_bands: Record<string, number> = {};
+  for (const k of order) if (by_priority[k]) risk_bands[k] = by_priority[k];
+
+  return {
+    source: "client",
+    total_cases: n,
+    by_priority,
+    dispositions,
+    risk_bands,
+    pending_review: pending,
+    critical_high,
+    sar_rate: n ? Math.round((finalized / n) * 1000) / 1000 : 0,
+    total_transactions: totalTx,
+    avg_transactions: n ? Math.round(totalTx / n) : 0,
+    reviewed: n - pending,
+    top_typologies: [],
+    screening_hit_rate: null,
+  };
 }
 
 /** Fetch the printable case report (with auth) and open it in a new tab (auto-prints). */
