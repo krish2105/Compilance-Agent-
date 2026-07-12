@@ -205,6 +205,21 @@ async function handle<T>(res: Response): Promise<T> {
     } catch {
       /* ignore */
     }
+    // A JWT that no longer resolves (expired, revoked, or the backend restarted and
+    // reset its data) should self-heal: clear the dead session and return to login
+    // instead of stranding the user on a red error.
+    if (res.status === 401) {
+      try {
+        if (localStorage.getItem("ca-token")) {
+          localStorage.removeItem("ca-token");
+          localStorage.removeItem("ca-user");
+          localStorage.removeItem("ca-demo");
+          window.location.reload();
+        }
+      } catch {
+        /* ignore */
+      }
+    }
     throw new Error(msg);
   }
   return res.json() as Promise<T>;
