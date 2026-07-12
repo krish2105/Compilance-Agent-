@@ -53,3 +53,42 @@ def should_sample(trace: Dict[str, Any], healthy_rate: float = 0.05) -> bool:
     # Deterministic 'random' sample by case-id hash (no Math.random needed).
     cid = trace.get("case_id", "")
     return (sum(ord(c) for c in cid) % 100) < int(healthy_rate * 100)
+
+
+def run_ci_gate(min_grounded: float = 0.6) -> int:
+    """Run the golden-set answers through the LLM judge and FAIL CI if mean
+    groundedness drops below the threshold. Only meaningful with a Gemini key
+    (else the deterministic judge is used, which the offline eval already covers).
+    Returns a process exit code."""
+    import json
+    import os
+    import sys
+    from pathlib import Path
+    from statistics import mean
+
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from app.agents import chat_agent, orchestrator  # noqa: E402
+
+    golden_path = Path(__file__).resolve().parent / "golden_set.json"
+    items = json.loads(golden_path.read_text())["items"]
+    scores = []
+    for it in items:
+        result = orchestrator.run_case(it["case_id"])
+        ans = chat_agent.answer(result, it["case_id"], it["question"])["answer"]
+        context = " ".join(it.get("expected_contains", []))
+        verdict = llm_judge(it["question"], ans, context)
+        scores.append(verdict["grounded"])
+        print(f"  {it['case_id']}: grounded={verdict['grounded']} ({verdict['judge']})")
+    avg = mean(scores) if scores else 0.0
+    print(f"LLM-judge mean groundedness: {avg:.3f} (threshold {min_grounded})")
+    if avg < min_grounded:
+        print("❌ LLM-judge gate FAILED")
+        return 1
+    print("✅ LLM-judge gate passed")
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    if "--ci" in sys.argv:
+        sys.exit(run_ci_gate())

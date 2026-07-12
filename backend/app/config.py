@@ -92,7 +92,7 @@ class Settings(BaseSettings):
 
     # ---- Advanced RAG ----
     # Embeddings: "hashing" (offline, $0, default) or "gemini" (neural, needs key).
-    embedding_backend: str = Field(default="hashing", alias="EMBEDDING_BACKEND")
+    embedding_backend: str = Field(default="ngram", alias="EMBEDDING_BACKEND")
     # Retrieval: "hybrid" (BM25+dense RRF, default) | "dense" | "bm25".
     retrieval_mode: str = Field(default="hybrid", alias="RETRIEVAL_MODE")
     # Reranker: "lexical" (deterministic, default) | "llm" (Gemini) | "none".

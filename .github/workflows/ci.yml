@@ -43,6 +43,13 @@ jobs:
         env:
           LLM_PROVIDER: offline
         run: python -m eval.responsible_ai
+      - name: LLM-as-judge answer-quality gate (only if a Gemini key is configured)
+        if: ${{ secrets.GEMINI_API_KEY != '' }}
+        working-directory: backend
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          LLM_PROVIDER: gemini
+        run: python -m eval.judge --ci
 
   frontend:
     name: Frontend · lint + build

@@ -47,8 +47,30 @@ _INJECTION_PATTERNS = [
     r"act as\b.*\b(?:jailbreak|dan|developer mode)",
     r"do anything now", r"</?(?:system|instruction)s?>",
     r"forget (?:everything|all|your instructions)",
+    # Fake role headers / instruction-override suffixes.
+    r"(?:^|\n)\s*(?:system|assistant|developer)\s*:",
+    r"\byou may now (?:ignore|bypass|disable|override)\b",
+    r"\b(?:ignore|bypass|disable|skip)\b.*\b(?:human[- ]?approval|approval gate|guardrail)",
+    # Attempts to exfiltrate the system prompt via transformation
+    # (translate/encode/repeat YOUR instructions / system prompt / rules).
+    r"(?:translate|encode|rephrase|summariz\w+|repeat|print|show|output|reveal)\b.{0,40}?\b"
+    r"(?:your|the)\s+(?:full\s+)?(?:instructions|system prompt|rules|prompt)",
 ]
 _INJECTION_RE = re.compile("|".join(_INJECTION_PATTERNS), re.IGNORECASE)
+
+
+def _decode_and_screen_b64(text: str) -> bool:
+    """Detect injection hidden inside a base64 blob (a common evasion)."""
+    import base64
+    for m in re.finditer(r"[A-Za-z0-9+/]{20,}={0,2}", text or ""):
+        try:
+            decoded = base64.b64decode(m.group(), validate=False).decode("utf-8", "ignore").lower()
+        except Exception:  # noqa: BLE001
+            continue
+        if any(w in decoded for w in ("ignore", "approve", "bypass", "system prompt",
+                                      "disregard", "override", "jailbreak")):
+            return True
+    return False
 
 _CASE_ID_RE = re.compile(r"^[A-Za-z]{2,6}-\d{3,6}$")
 
@@ -96,7 +118,10 @@ def redact_pii(text: str) -> str:
 
 
 def detect_prompt_injection(text: str) -> List[str]:
-    return [m.group().strip() for m in _INJECTION_RE.finditer(text or "")]
+    hits = [m.group().strip() for m in _INJECTION_RE.finditer(text or "")]
+    if _decode_and_screen_b64(text or ""):
+        hits.append("base64-encoded injection")
+    return hits
 
 
 def scan_text(text: str, *, label: str = "text") -> Dict[str, Any]:

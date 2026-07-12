@@ -18,6 +18,24 @@ export default function GnnPanel({ result }: { result: InvestigationResult }) {
   };
   const overall = Math.round(risk.overall_risk * 100);
 
+  // Honest confidence: how much the independent signals AGREE + how well-calibrated
+  // the GNN is + how decisive the score is (mid-range ~50% = least certain).
+  const signals = [
+    risk.components.typology_confidence,
+    risk.components.gnn_case_risk ?? undefined,
+    risk.components.screening_risk ?? undefined,
+  ].filter((v): v is number => typeof v === "number");
+  const mean = signals.reduce((a, b) => a + b, 0) / (signals.length || 1);
+  const spread = Math.sqrt(signals.reduce((a, b) => a + (b - mean) ** 2, 0) / (signals.length || 1));
+  const agreement = 1 - Math.min(1, spread * 2); // low spread → high agreement
+  const decisiveness = Math.abs(risk.overall_risk - 0.5) * 2; // far from 50% → more certain
+  const ece = gnn.model?.test_ece ?? 0.1;
+  const calib = 1 - Math.min(1, ece * 5);
+  const confidence = Math.max(0.05, Math.min(0.99, 0.5 * agreement + 0.3 * decisiveness + 0.2 * calib));
+  const band = Math.round((1 - confidence) * 18); // ± percentage points
+  const confLabel = confidence >= 0.7 ? "High" : confidence >= 0.45 ? "Moderate" : "Low";
+  const confColor = confidence >= 0.7 ? "text-ok" : confidence >= 0.45 ? "text-priority-high" : "text-danger";
+
   return (
     <div className="glass p-4">
       <div className="mb-3 flex items-center gap-2">
@@ -42,7 +60,8 @@ export default function GnnPanel({ result }: { result: InvestigationResult }) {
             {risk.sanctions_override && <div className="text-danger">⚠ sanctions override</div>}
           </div>
         </div>
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-base">
+        {/* Score bar with a model-uncertainty band */}
+        <div className="relative mt-3 h-2 overflow-hidden rounded-full bg-surface-base">
           <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${overall}%` }}
@@ -53,6 +72,27 @@ export default function GnnPanel({ result }: { result: InvestigationResult }) {
                 : overall >= 40 ? "bg-priority-medium" : "bg-priority-low",
             )}
           />
+          {/* uncertainty band around the point estimate */}
+          <div
+            className="absolute top-0 h-full bg-ink/10"
+            style={{
+              left: `${Math.max(0, overall - band)}%`,
+              width: `${Math.min(100, overall + band) - Math.max(0, overall - band)}%`,
+            }}
+            title={`Model uncertainty ±${band}%`}
+          />
+        </div>
+        {/* Honest confidence readout */}
+        <div className="mt-2 flex items-center justify-between text-[11px]">
+          <span className="text-ink-faint">
+            Point estimate <span className="font-mono text-ink">{overall}%</span> · range{" "}
+            <span className="font-mono text-ink">
+              {Math.max(0, overall - band)}–{Math.min(100, overall + band)}%
+            </span>
+          </span>
+          <span className={cx("font-semibold", confColor)}>
+            {confLabel} confidence ({Math.round(confidence * 100)}%)
+          </span>
         </div>
       </div>
 

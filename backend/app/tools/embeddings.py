@@ -1,12 +1,15 @@
 """
 Pluggable text embeddings for RAG.
 
-Two backends, selected by `EMBEDDING_BACKEND`:
-  * **hashing** (default) — deterministic, offline, zero-dependency hashing
-    bag-of-words embedder. $0, no network, reproducible; keeps the free-tier image
-    lean (no torch / sentence-transformers).
+Three backends, selected by `EMBEDDING_BACKEND`:
+  * **ngram** (default) — a stronger dependency-free embedder: word unigrams +
+    bigrams + character 3/4-grams, TF-weighted (1+log) and signed-hashed into 512d.
+    Captures sub-word and phrase overlap (e.g. "structuring" ≈ "structured"), so it
+    retrieves measurably better than plain single-token hashing — still $0, offline,
+    deterministic, no torch/sentence-transformers.
+  * **hashing** — the original bag-of-words hashing embedder (kept for comparison).
   * **gemini** — real neural embeddings via Google's `text-embedding-004` API,
-    used when a Gemini key is configured. Falls back to hashing on any error.
+    used when a Gemini key is configured. Falls back to ngram on any error.
 
 Isolating embeddings behind this interface is what makes the "swap in a real
 embedding model" upgrade a one-line config change (ADR-006). Vectors are always
@@ -22,6 +25,7 @@ from typing import List
 from app.config import settings
 
 _HASH_DIM = 256
+_NGRAM_DIM = 512
 
 
 def _tokenize(text: str) -> List[str]:
@@ -33,11 +37,45 @@ def _l2(vec: List[float]) -> List[float]:
     return [v / norm for v in vec]
 
 
+def _sig_hash(feature: str) -> tuple:
+    """Return (index, sign) for a feature via a stable hash (signed hashing trick)."""
+    h = int(hashlib.md5(feature.encode()).hexdigest(), 16)
+    return h, 1.0 if (h >> 8) % 2 == 0 else -1.0
+
+
 def _hash_embed(text: str) -> List[float]:
     vec = [0.0] * _HASH_DIM
     for tok in _tokenize(text):
-        h = int(hashlib.md5(tok.encode()).hexdigest(), 16)
-        vec[h % _HASH_DIM] += 1.0 if (h >> 8) % 2 == 0 else -1.0
+        h, sign = _sig_hash(tok)
+        vec[h % _HASH_DIM] += sign
+    return _l2(vec)
+
+
+def _ngram_features(text: str):
+    """Yield (feature, weight) pairs: word unigrams + bigrams + char 3/4-grams."""
+    toks = _tokenize(text)
+    for t in toks:                                   # word unigrams
+        yield ("w:" + t, 1.0)
+    for a, b in zip(toks, toks[1:]):                 # word bigrams (phrases)
+        yield (f"b:{a}_{b}", 0.7)
+    for t in toks:                                   # char 3/4-grams (sub-word)
+        padded = f"#{t}#"
+        for n in (3, 4):
+            for i in range(len(padded) - n + 1):
+                yield ("c:" + padded[i:i + n], 0.5)
+
+
+def _ngram_embed(text: str) -> List[float]:
+    counts: dict = {}
+    weights: dict = {}
+    for feat, w in _ngram_features(text):
+        counts[feat] = counts.get(feat, 0) + 1
+        weights[feat] = w
+    vec = [0.0] * _NGRAM_DIM
+    for feat, c in counts.items():
+        idx, sign = _sig_hash(feat)
+        tf = 1.0 + math.log(c)                       # sublinear TF
+        vec[idx % _NGRAM_DIM] += sign * tf * weights[feat]
     return _l2(vec)
 
 
@@ -56,10 +94,10 @@ class Embedder:
     """Embeds text with the configured backend; safe fallback to hashing."""
 
     def __init__(self) -> None:
-        self.backend = (settings.embedding_backend or "hashing").lower()
+        self.backend = (settings.embedding_backend or "ngram").lower()
         self._active = self.backend
         if self.backend == "gemini" and not settings.gemini_api_key:
-            self._active = "hashing"
+            self._active = "ngram"
 
     @property
     def active_backend(self) -> str:
@@ -70,8 +108,10 @@ class Embedder:
             try:
                 return _gemini_embed(texts)
             except Exception:  # noqa: BLE001 - never break retrieval on embed failure
-                self._active = "hashing"
-        return [_hash_embed(t) for t in texts]
+                self._active = "ngram"
+        if self._active == "hashing":
+            return [_hash_embed(t) for t in texts]
+        return [_ngram_embed(t) for t in texts]  # default: ngram
 
     def embed_one(self, text: str) -> List[float]:
         return self.embed([text])[0]
