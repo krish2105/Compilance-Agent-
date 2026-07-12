@@ -1,9 +1,10 @@
 """Ops routes: Prometheus /metrics + async job status."""
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 
+from app import auth
 from app.tools import jobs, metrics
 
 router = APIRouter(tags=["ops"])
@@ -34,12 +35,12 @@ def model_info() -> dict:
 
 
 @router.get("/api/dashboard")
-def dashboard() -> dict:
+def dashboard(principal: auth.Principal = Depends(auth.get_current_principal)) -> dict:
     """Portfolio analytics (alert volume, dispositions, SAR rate, risk-band + typology
-    distribution). Cached."""
+    distribution) scoped to the caller's tenant. Cached per tenant."""
     from app.tools import analytics
 
-    return analytics.compute_dashboard()
+    return analytics.compute_dashboard(principal.tenant)
 
 
 @router.get("/api/responsible-ai")

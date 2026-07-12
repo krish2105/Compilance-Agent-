@@ -12,7 +12,11 @@ from typing import Any, Dict, List
 
 from app.tools import audit, cache, db
 
-_CACHE_KEY = "dashboard"
+_CACHE_PREFIX = "dashboard"
+
+
+def _key(tenant: str) -> str:
+    return f"{_CACHE_PREFIX}:{tenant}"
 
 
 def _quick_assess(case_id: str) -> Dict[str, Any]:
@@ -39,8 +43,8 @@ def _quick_assess(case_id: str) -> Dict[str, Any]:
     }
 
 
-def compute_dashboard() -> Dict[str, Any]:
-    cached = cache.get(_CACHE_KEY)
+def compute_dashboard(tenant: str = "demo") -> Dict[str, Any]:
+    cached = cache.get(_key(tenant))
     if cached is not None:
         return cached
 
@@ -50,7 +54,7 @@ def compute_dashboard() -> Dict[str, Any]:
     dispositions = Counter()
     finalized = 0
     for c in cases:
-        review = audit.get_latest_review(c["case_id"])
+        review = audit.get_latest_review(c["case_id"], tenant)
         status = review["status"] if review else "PENDING_REVIEW"
         dispositions[status] += 1
         if status.startswith(("APPROVED", "ESCALATED")):
@@ -83,9 +87,9 @@ def compute_dashboard() -> Dict[str, Any]:
         "pending_review": dispositions.get("PENDING_REVIEW", 0),
         "critical_high": by_priority.get("Critical", 0) + by_priority.get("High", 0),
     }
-    cache.set(_CACHE_KEY, result, ttl=300)
+    cache.set(_key(tenant), result, ttl=300)
     return result
 
 
-def invalidate() -> None:
-    cache.set(_CACHE_KEY, None, ttl=1)
+def invalidate(tenant: str = "demo") -> None:
+    cache.set(_key(tenant), None, ttl=1)

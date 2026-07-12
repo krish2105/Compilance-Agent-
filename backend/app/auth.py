@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.db import SessionLocal, get_db
-from app.models import ROLES, User
+from app.models import DEMO_TENANT_SLUG, ROLES, Tenant, User
 
 _PBKDF2_ROUNDS = 120_000
 
@@ -47,9 +47,9 @@ def verify_password(password: str, stored: str) -> bool:
 
 
 # --------------------------------------------------------------------- tokens
-def create_token(user: User) -> str:
+def create_token(user: User, tenant_slug: str) -> str:
     payload = {
-        "sub": user.username, "role": user.role,
+        "sub": user.username, "role": user.role, "tid": tenant_slug,
         "exp": datetime.now(timezone.utc) + timedelta(hours=settings.jwt_expire_hours),
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
@@ -66,24 +66,33 @@ def _decode_token(token: str) -> Optional[dict]:
 class Principal:
     """The authenticated caller (a real user, or the demo API-key admin)."""
 
-    def __init__(self, username: str, role: str, via: str) -> None:
+    def __init__(self, username: str, role: str, via: str,
+                 tenant: str = DEMO_TENANT_SLUG) -> None:
         self.username = username
         self.role = role
         self.via = via  # "jwt" | "api_key"
+        self.tenant = tenant  # tenant slug — the data-isolation boundary
 
 
 def get_current_principal(request: Request, db: Session = Depends(get_db)) -> Principal:
     auth = request.headers.get("authorization", "")
     if auth.lower().startswith("bearer "):
         payload = _decode_token(auth[7:].strip())
+        tid = (payload or {}).get("tid", DEMO_TENANT_SLUG)
         if payload and payload.get("sub"):
-            user = db.execute(select(User).where(User.username == payload["sub"])).scalar_one_or_none()
-            if user and user.active:
-                return Principal(user.username, user.role, "jwt")
+            # Resolve the tenant, then the user within it (usernames are per-tenant).
+            tenant = db.execute(select(Tenant).where(Tenant.slug == tid)).scalar_one_or_none()
+            if tenant is not None:
+                user = db.execute(
+                    select(User).where(User.username == payload["sub"],
+                                       User.tenant_id == tenant.id)
+                ).scalar_one_or_none()
+                if user and user.active:
+                    return Principal(user.username, user.role, "jwt", tenant.slug)
         raise HTTPException(status_code=401, detail="Invalid or expired token.")
-    # Legacy/demo API key → synthetic admin so the demo keeps working.
+    # Legacy/demo API key → synthetic admin on the demo tenant so the demo keeps working.
     if request.headers.get("x-api-key") == settings.backend_api_key:
-        return Principal("demo-api-key", "admin", "api_key")
+        return Principal("demo-api-key", "admin", "api_key", DEMO_TENANT_SLUG)
     raise HTTPException(status_code=401, detail="Not authenticated.")
 
 
@@ -110,15 +119,54 @@ _DEFAULT_USERS = [
 ]
 
 
+def get_or_create_tenant(db: Session, slug: str, name: str = "") -> Tenant:
+    tenant = db.execute(select(Tenant).where(Tenant.slug == slug)).scalar_one_or_none()
+    if tenant is None:
+        tenant = Tenant(slug=slug, name=name or slug.replace("-", " ").title())
+        db.add(tenant)
+        db.flush()  # assign id
+    return tenant
+
+
+def slugify(name: str) -> str:
+    base = "".join(c if c.isalnum() else "-" for c in name.lower()).strip("-")
+    while "--" in base:
+        base = base.replace("--", "-")
+    return base[:40] or "org"
+
+
+def register_organization(db: Session, org_name: str, username: str, password: str,
+                          email: str = "", full_name: str = "") -> tuple[Tenant, User]:
+    """Self-serve onboarding: create a new tenant and its first admin user.
+
+    Raises ValueError if the organization slug is already taken.
+    """
+    slug = slugify(org_name)
+    if db.execute(select(Tenant).where(Tenant.slug == slug)).scalar_one_or_none():
+        raise ValueError(f"An organization named '{org_name}' already exists.")
+    tenant = Tenant(slug=slug, name=org_name)
+    db.add(tenant)
+    db.flush()
+    user = User(tenant_id=tenant.id, username=username, email=email,
+                full_name=full_name, hashed_password=hash_password(password), role="admin")
+    db.add(user)
+    db.commit()
+    return tenant, user
+
+
 def seed_default_users() -> None:
-    """Create the demo users on first run (idempotent)."""
+    """Create the demo tenant + demo users on first run (idempotent)."""
     db = SessionLocal()
     try:
+        tenant = get_or_create_tenant(db, DEMO_TENANT_SLUG, "Demo Organization")
         for username, pw, role, full_name in _DEFAULT_USERS:
-            exists = db.execute(select(User).where(User.username == username)).scalar_one_or_none()
+            exists = db.execute(
+                select(User).where(User.username == username, User.tenant_id == tenant.id)
+            ).scalar_one_or_none()
             if not exists:
-                db.add(User(username=username, email=f"{username}@demo.local",
-                            full_name=full_name, hashed_password=hash_password(pw), role=role))
+                db.add(User(tenant_id=tenant.id, username=username,
+                            email=f"{username}@demo.local", full_name=full_name,
+                            hashed_password=hash_password(pw), role=role))
         db.commit()
     finally:
         db.close()

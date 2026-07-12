@@ -22,9 +22,9 @@ from starlette.responses import JSONResponse
 from app.config import settings
 from app.tools import metrics
 
-# Paths that never require auth.
-_PUBLIC_PREFIXES = ("/api/health", "/api/auth/login", "/metrics", "/docs",
-                    "/openapi.json", "/redoc", "/favicon")
+# Paths that never require auth (login + self-serve org signup are public).
+_PUBLIC_PREFIXES = ("/api/health", "/api/auth/login", "/api/auth/register-org",
+                    "/metrics", "/docs", "/openapi.json", "/redoc", "/favicon")
 
 _ID_RE = re.compile(r"/(CASE-\d+|AML-\d+|job_\d+)")
 

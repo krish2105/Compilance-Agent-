@@ -6,6 +6,7 @@ export type Role = "analyst" | "mlro" | "admin";
 export interface AuthUser {
   username: string;
   role: Role;
+  tenant?: { slug: string; name: string };
 }
 
 interface UiState {

@@ -30,14 +30,37 @@ function headers(json = false): HeadersInit {
   return h;
 }
 
-export async function login(username: string, password: string): Promise<{
+export interface AuthResponse {
   token: string;
   user: { username: string; role: "analyst" | "mlro" | "admin" };
-}> {
+  tenant?: { slug: string; name: string };
+}
+
+export async function login(
+  username: string,
+  password: string,
+  org = "demo",
+): Promise<AuthResponse> {
   const res = await fetch(`${API_URL}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ username, password, org }),
+  });
+  return handle(res);
+}
+
+/** Public self-serve onboarding — create a new organization + its first admin user. */
+export async function registerOrg(payload: {
+  org_name: string;
+  username: string;
+  password: string;
+  email?: string;
+  full_name?: string;
+}): Promise<AuthResponse> {
+  const res = await fetch(`${API_URL}/api/auth/register-org`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
   });
   return handle(res);
 }

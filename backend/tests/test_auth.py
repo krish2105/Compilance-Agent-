@@ -31,10 +31,11 @@ def test_token_roundtrip_and_role():
     _setup()
     db = SessionLocal()
     user = db.query(User).filter(User.username == "mlro").first()
-    token = auth.create_token(user)
+    token = auth.create_token(user, "demo")
     payload = auth._decode_token(token)
     assert payload["sub"] == "mlro"
     assert payload["role"] == "mlro"
+    assert payload["tid"] == "demo"
     db.close()
 
 

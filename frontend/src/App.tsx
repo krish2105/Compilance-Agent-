@@ -82,9 +82,13 @@ export default function App() {
             {user && (
               <span
                 className={`chip ${roleColor[user.role] ?? "bg-ink-faint/15 text-ink-muted"}`}
-                title={`Signed in as ${user.username} (${user.role})`}
+                title={`Signed in as ${user.username} (${user.role})${
+                  user.tenant ? ` · ${user.tenant.name}` : ""
+                }`}
               >
-                <UserCircle2 size={13} /> {user.username} · {user.role}
+                <UserCircle2 size={13} />
+                {user.tenant && !demoMode ? `${user.tenant.name} · ` : ""}
+                {user.username} · {user.role}
                 {demoMode ? " (demo)" : ""}
               </span>
             )}

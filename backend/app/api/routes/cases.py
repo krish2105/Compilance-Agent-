@@ -35,20 +35,21 @@ _VALID_DECISIONS = {"APPROVED", "REJECTED", "EDITED", "ESCALATED"}
 
 
 @router.get("")
-def list_cases() -> List[dict]:
-    """All investigation cases with their current review status."""
+def list_cases(principal: auth.Principal = Depends(auth.get_current_principal)) -> List[dict]:
+    """All investigation cases with THIS tenant's current review status."""
     cases = db.list_cases()
     for c in cases:
-        review = audit.get_latest_review(c["case_id"])
+        review = audit.get_latest_review(c["case_id"], principal.tenant)
         c["review_status"] = review["status"] if review else "PENDING_REVIEW"
         c["reviewed_by"] = review["reviewer"] if review else None
     return cases
 
 
 @router.get("/{case_id}")
-def get_case_detail(case_id: str) -> dict:
-    """Full case detail. Runs (or reuses a cached) investigation and attaches the
-    current human-review state. Does NOT finalize anything."""
+def get_case_detail(case_id: str,
+                    principal: auth.Principal = Depends(auth.get_current_principal)) -> dict:
+    """Full case detail. Runs (or reuses a cached) investigation and attaches THIS
+    tenant's human-review state. Does NOT finalize anything."""
     case = db.get_case(case_id)
     if case is None:
         raise HTTPException(status_code=404, detail=f"Case '{case_id}' not found.")
@@ -58,12 +59,12 @@ def get_case_detail(case_id: str) -> dict:
         result = orchestrator.run_case(case_id)
         store.put_result(case_id, result)
 
-    review = audit.get_latest_review(case_id)
+    review = audit.get_latest_review(case_id, principal.tenant)
     return {
         "case": case,
         "result": result,
         "review": review,
-        "review_history": audit.get_review_history(case_id),
+        "review_history": audit.get_review_history(case_id, principal.tenant),
     }
 
 
@@ -138,33 +139,36 @@ def _result_and_case(case_id: str):
 
 
 @router.get("/{case_id}/sar")
-def get_sar(case_id: str) -> dict:
+def get_sar(case_id: str,
+            principal: auth.Principal = Depends(auth.get_current_principal)) -> dict:
     """Structured STR/SAR record (coded activity + subject + indicators + narrative)
     plus the filing SLA. Draft for the MLRO — not filed."""
     result, case = _result_and_case(case_id)
-    review = audit.get_latest_review(case_id)
+    review = audit.get_latest_review(case_id, principal.tenant)
     edited = review.get("edited_narrative") if review else None
     return sar.build_all(result, case, review, narrative_override=edited)
 
 
 @router.get("/{case_id}/report")
-def get_report(case_id: str):
+def get_report(case_id: str,
+               principal: auth.Principal = Depends(auth.get_current_principal)):
     """Self-contained printable HTML case report (browser → PDF)."""
     from fastapi.responses import HTMLResponse
 
     from app.tools import report as report_tool
 
     result, case = _result_and_case(case_id)
-    review = audit.get_latest_review(case_id)
+    review = audit.get_latest_review(case_id, principal.tenant)
     html = report_tool.build_html_report(result, case, review)
     return HTMLResponse(content=html)
 
 
 @router.get("/{case_id}/sar.xml")
-def get_sar_xml(case_id: str):
+def get_sar_xml(case_id: str,
+                principal: auth.Principal = Depends(auth.get_current_principal)):
     """Download the STR as goAML-schema XML (the UAE FIU / UNODC filing format)."""
     result, case = _result_and_case(case_id)
-    review = audit.get_latest_review(case_id)
+    review = audit.get_latest_review(case_id, principal.tenant)
     edited = review.get("edited_narrative") if review else None
     record = sar.build_sar_record(result, case, narrative_override=edited)
     xml = sar.goaml_xml(record)
@@ -212,13 +216,14 @@ def submit_review(case_id: str, req: ReviewRequest,
                 detail=f"Potential prompt-injection detected in '{field}'; rejected.",
             )
 
-    # Record the AUTHENTICATED reviewer (not a client-supplied name) for integrity.
+    # Record the AUTHENTICATED reviewer (not a client-supplied name) for integrity,
+    # scoped to the caller's tenant.
     reviewer = f"{principal.username} ({principal.role})"
     review = audit.record_review(
-        case_id, decision, reviewer,
+        case_id, decision, reviewer, tenant=principal.tenant,
         notes=req.notes, edited_narrative=req.edited_narrative,
     )
     memory.invalidate()  # refresh precedent dispositions in case memory
     from app.tools import analytics
-    analytics.invalidate()  # refresh dashboard dispositions
+    analytics.invalidate(principal.tenant)  # refresh this tenant's dashboard dispositions
     return {"ok": True, "review": review}

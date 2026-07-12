@@ -58,6 +58,7 @@ def init_db() -> None:
             CREATE TABLE IF NOT EXISTS case_reviews (
                 id            INTEGER PRIMARY KEY AUTOINCREMENT,
                 case_id       TEXT NOT NULL,
+                tenant        TEXT NOT NULL DEFAULT 'demo',  -- data-isolation boundary
                 ts            TEXT NOT NULL,
                 decision      TEXT NOT NULL,     -- 'APPROVED' | 'REJECTED' | 'EDITED' | 'ESCALATED'
                 reviewer      TEXT NOT NULL,
@@ -67,8 +68,13 @@ def init_db() -> None:
             )
             """
         )
+        # Migration: add `tenant` to case_reviews created before multi-tenancy.
+        cols = {r["name"] for r in con.execute("PRAGMA table_info(case_reviews)").fetchall()}
+        if "tenant" not in cols:
+            con.execute("ALTER TABLE case_reviews ADD COLUMN tenant TEXT NOT NULL DEFAULT 'demo'")
         con.execute("CREATE INDEX IF NOT EXISTS idx_audit_case ON audit_events(case_id)")
         con.execute("CREATE INDEX IF NOT EXISTS idx_review_case ON case_reviews(case_id)")
+        con.execute("CREATE INDEX IF NOT EXISTS idx_review_tenant ON case_reviews(tenant, case_id)")
 
 
 def log_event(
@@ -122,10 +128,11 @@ def record_review(
     decision: str,
     reviewer: str,
     *,
+    tenant: str = "demo",
     notes: Optional[str] = None,
     edited_narrative: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Persist a human review decision (the enforced approval gate)."""
+    """Persist a human review decision (the enforced approval gate), scoped to a tenant."""
     status_map = {
         "APPROVED": "APPROVED_FOR_FILING_REVIEW",
         "REJECTED": "REJECTED_CLOSED",
@@ -138,35 +145,36 @@ def record_review(
         con.execute(
             """
             INSERT INTO case_reviews
-                (case_id, ts, decision, reviewer, notes, edited_narrative, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+                (case_id, tenant, ts, decision, reviewer, notes, edited_narrative, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            [case_id, ts, decision.upper(), reviewer, notes, edited_narrative, status],
+            [case_id, tenant, ts, decision.upper(), reviewer, notes, edited_narrative, status],
         )
     # Mirror the human action into the main audit stream.
     log_event(
         case_id, f"human:{reviewer}", f"REVIEW_{decision.upper()}",
         actor_type="human",
         summary=notes or f"Analyst {decision.lower()} the draft case.",
-        detail={"decision": decision.upper(), "status": status,
+        detail={"decision": decision.upper(), "status": status, "tenant": tenant,
                 "has_edit": edited_narrative is not None},
     )
     return {"case_id": case_id, "ts": ts, "decision": decision.upper(),
             "reviewer": reviewer, "status": status, "notes": notes}
 
 
-def get_latest_review(case_id: str) -> Optional[Dict[str, Any]]:
+def get_latest_review(case_id: str, tenant: str = "demo") -> Optional[Dict[str, Any]]:
     with _lock, _connect() as con:
         row = con.execute(
-            "SELECT * FROM case_reviews WHERE case_id = ? ORDER BY id DESC LIMIT 1",
-            [case_id],
+            "SELECT * FROM case_reviews WHERE case_id = ? AND tenant = ? ORDER BY id DESC LIMIT 1",
+            [case_id, tenant],
         ).fetchone()
     return dict(row) if row else None
 
 
-def get_review_history(case_id: str) -> List[Dict[str, Any]]:
+def get_review_history(case_id: str, tenant: str = "demo") -> List[Dict[str, Any]]:
     with _lock, _connect() as con:
         rows = con.execute(
-            "SELECT * FROM case_reviews WHERE case_id = ? ORDER BY id", [case_id]
+            "SELECT * FROM case_reviews WHERE case_id = ? AND tenant = ? ORDER BY id",
+            [case_id, tenant],
         ).fetchall()
     return [dict(r) for r in rows]
