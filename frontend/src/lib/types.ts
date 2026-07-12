@@ -155,9 +155,14 @@ export interface GnnResult {
   top_risk_accounts?: { account: string; score: number }[];
   model?: {
     architecture?: string;
+    layer_type?: string;
     test_f1?: number;
     test_pr_auc?: number;
     test_roc_auc?: number;
+    test_brier?: number;
+    test_ece?: number;
+    calibrated?: boolean;
+    registry_version?: number;
     trained_on_accounts?: number;
   };
   summary?: string;

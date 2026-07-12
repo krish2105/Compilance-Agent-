@@ -18,8 +18,8 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-from gnn.features import build_account_features, normalize_adj, standardize
-from gnn.model import GCN
+from gnn.features import build_account_features, standardize
+from gnn.model import GNN
 
 _MODEL_PATH = Path(__file__).resolve().parent.parent.parent / "gnn" / "model.npz"
 _METRICS_PATH = Path(__file__).resolve().parent.parent.parent / "gnn" / "metrics.json"
@@ -35,7 +35,7 @@ def _load():
     if _model is not None or _load_failed:
         return _model
     try:
-        _model = GCN.load(_MODEL_PATH)
+        _model = GNN.load(_MODEL_PATH)
         if _METRICS_PATH.exists():
             import json
             _metrics = json.loads(_METRICS_PATH.read_text())
@@ -60,7 +60,7 @@ def _full_graph_scores() -> Dict[str, float]:
     txs = db.get_all_transactions()
     accounts, X, A, _y = build_account_features(txs)
     Xn, _, _ = standardize(X, model.mean, model.std)
-    probs = model.predict(normalize_adj(A), Xn)
+    probs = model.predict(A, Xn)
     _full_scores = {acc: round(float(probs[i]), 4) for i, acc in enumerate(accounts)}
     return _full_scores
 
@@ -81,7 +81,7 @@ def score_case(transactions: List[Dict[str, Any]], subject: str) -> Dict[str, An
     if any(a not in full for a in case_accounts):
         accounts, X, A, _y = build_account_features(transactions)
         Xn, _, _ = standardize(X, model.mean, model.std)
-        local = model.predict(normalize_adj(A), Xn)
+        local = model.predict(A, Xn)
         local_scores = {a: round(float(local[i]), 4) for i, a in enumerate(accounts)}
     else:
         local_scores = {}
@@ -104,12 +104,31 @@ def score_case(transactions: List[Dict[str, Any]], subject: str) -> Dict[str, An
         "mean_risk": mean_risk,
         "top_risk_accounts": top_accounts,
         "model": {
-            "architecture": _metrics.get("architecture", "2-layer GCN (NumPy)"),
+            "architecture": _metrics.get("architecture", "2-layer GNN (NumPy)"),
+            "layer_type": _metrics.get("layer_type"),
             "test_f1": _metrics.get("test", {}).get("f1"),
             "test_pr_auc": _metrics.get("test", {}).get("pr_auc"),
             "test_roc_auc": _metrics.get("test", {}).get("roc_auc"),
+            "test_brier": _metrics.get("test", {}).get("brier"),
+            "test_ece": _metrics.get("test", {}).get("ece"),
+            "calibrated": True,
+            "registry_version": _metrics.get("registry_version"),
             "trained_on_accounts": _metrics.get("n_accounts"),
         },
         "summary": (f"GNN case risk {case_risk:.0%} (subject {float(subject_risk):.0%}); "
                     f"top-risk account {top[0][0][-6:] if top else 'n/a'}."),
     }
+
+
+def model_info() -> Dict[str, Any]:
+    """Registry entry + a live drift check of the current transaction graph."""
+    from app.tools import db
+    from gnn import drift, registry
+
+    info: Dict[str, Any] = {"registry": registry.latest(), "metrics": _metrics}
+    try:
+        _, X, _A, _y = build_account_features(db.get_all_transactions())
+        info["drift"] = drift.check_drift(X)
+    except Exception as exc:  # noqa: BLE001
+        info["drift"] = {"available": False, "note": str(exc)}
+    return info

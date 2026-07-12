@@ -23,3 +23,11 @@ def get_job(job_id: str) -> dict:
     if job is None:
         raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found or expired.")
     return job
+
+
+@router.get("/api/model")
+def model_info() -> dict:
+    """GNN model registry (versioned model card + metrics) + live drift check."""
+    from app.agents import gnn_agent
+
+    return gnn_agent.model_info()

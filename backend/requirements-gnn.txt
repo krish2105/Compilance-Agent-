@@ -7,3 +7,6 @@
 torch==2.2.2
 torch-geometric==2.5.3
 scikit-learn==1.4.2
+# Optional: mirror model runs to a real MLflow server (set MLFLOW_TRACKING_URI).
+# The built-in JSON registry (gnn/registry.py) needs none of this.
+mlflow==2.16.2

@@ -84,9 +84,14 @@ export default function GnnPanel({ result }: { result: InvestigationResult }) {
       </div>
 
       <p className="mt-3 text-[11px] text-ink-faint">
-        2-layer GCN (from-scratch NumPy) · trained on {gnn.model?.trained_on_accounts} accounts ·
-        ROC-AUC {gnn.model?.test_roc_auc?.toFixed(2)} · class-imbalance-aware loss. The GNN score is
-        an independent, graph-based signal that corroborates the typology match.
+        {gnn.model?.architecture} · trained on {gnn.model?.trained_on_accounts} accounts · ROC-AUC{" "}
+        {gnn.model?.test_roc_auc?.toFixed(2)}
+        {gnn.model?.calibrated && (
+          <> · <span className="text-ok">calibrated</span> (Brier {gnn.model?.test_brier?.toFixed(3)}, ECE{" "}
+          {gnn.model?.test_ece?.toFixed(3)})</>
+        )}
+        {gnn.model?.registry_version != null && <> · registry v{gnn.model.registry_version}</>}. An
+        independent, graph-based signal that corroborates the typology match.
       </p>
     </div>
   );

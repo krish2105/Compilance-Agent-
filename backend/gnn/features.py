@@ -22,10 +22,20 @@ FEATURE_NAMES = [
     "out_degree", "in_degree", "log_total_out", "log_total_in",
     "distinct_receivers", "distinct_senders", "cash_ratio", "cross_border_ratio",
     "log_max_amount", "log_mean_amount", "sanctioned_touch", "structuring_ratio",
+    # --- temporal features (make the model temporal-aware) ---
+    "log_time_span_min", "log_min_gap_min", "burstiness", "night_ratio",
 ]
 N_FEATURES = len(FEATURE_NAMES)
 _CASH = {"Cash Deposit", "Cash Withdrawal", "Cash"}
 _THRESHOLD = 10_000.0
+
+
+def _parse_ts(s: str):
+    from datetime import datetime
+    try:
+        return datetime.strptime(s, "%Y-%m-%d %H:%M:%S")
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def build_account_features(transactions: List[Dict[str, Any]]) -> Tuple[List[str], np.ndarray, np.ndarray, np.ndarray]:
@@ -42,7 +52,7 @@ def build_account_features(transactions: List[Dict[str, Any]]) -> Tuple[List[str
     agg = defaultdict(lambda: {
         "out": 0, "in": 0, "out_amt": 0.0, "in_amt": 0.0, "recv": set(), "send": set(),
         "cash": 0, "xborder": 0, "tx": 0, "max_amt": 0.0, "sub": 0, "sanctioned": 0,
-        "illicit": 0,
+        "illicit": 0, "times": [], "night": 0,
     })
     edges = set()
     for t in transactions:
@@ -51,6 +61,8 @@ def build_account_features(transactions: List[Dict[str, Any]]) -> Tuple[List[str
         _id(r)
         edges.add((s, r))
         amt = float(t["amount"])
+        ts = _parse_ts(t.get("timestamp", ""))
+        night = 1 if (ts and (ts.hour < 6 or ts.hour >= 22)) else 0
         is_l = int(t.get("is_laundering", 0))
         xb = 1 if t["sender_bank_location"] != t["receiver_bank_location"] else 0
         cash = 1 if t["payment_type"] in _CASH else 0
@@ -69,6 +81,9 @@ def build_account_features(transactions: List[Dict[str, Any]]) -> Tuple[List[str
             a["max_amt"] = max(a["max_amt"], amt)
             a["sub"] += sub
             a["sanctioned"] = max(a["sanctioned"], sanc)
+            a["night"] += night
+            if ts is not None:
+                a["times"].append(ts)
             if is_l:
                 a["illicit"] = 1
         agg[s]["recv"].add(r)
@@ -80,11 +95,23 @@ def build_account_features(transactions: List[Dict[str, Any]]) -> Tuple[List[str
     for acc, i in idx.items():
         a = agg[acc]
         tx = max(a["tx"], 1)
+        # Temporal aggregates.
+        times = sorted(a["times"])
+        if len(times) >= 2:
+            gaps = [(times[k + 1] - times[k]).total_seconds() / 60.0 for k in range(len(times) - 1)]
+            span_min = (times[-1] - times[0]).total_seconds() / 60.0
+            min_gap = min(gaps) if gaps else 0.0
+            mean_gap = sum(gaps) / len(gaps) if gaps else 0.0
+            var = sum((g - mean_gap) ** 2 for g in gaps) / len(gaps) if gaps else 0.0
+            burstiness = (var ** 0.5) / mean_gap if mean_gap else 0.0
+        else:
+            span_min = min_gap = burstiness = 0.0
         X[i] = [
             a["out"], a["in"], math.log1p(a["out_amt"]), math.log1p(a["in_amt"]),
             len(a["recv"]), len(a["send"]), a["cash"] / tx, a["xborder"] / tx,
             math.log1p(a["max_amt"]), math.log1p((a["out_amt"] + a["in_amt"]) / tx),
             a["sanctioned"], a["sub"] / tx,
+            math.log1p(span_min), math.log1p(min_gap), min(burstiness, 5.0), a["night"] / tx,
         ]
         y[i] = a["illicit"]
 
@@ -94,6 +121,13 @@ def build_account_features(transactions: List[Dict[str, Any]]) -> Tuple[List[str
         A[i, j] = 1.0
         A[j, i] = 1.0  # undirected for message passing
     return accounts, X, A, y
+
+
+def mean_adj(A: np.ndarray) -> np.ndarray:
+    """Row-normalised adjacency (mean of neighbours) for the GraphSAGE aggregator."""
+    deg = A.sum(axis=1, keepdims=True)
+    deg[deg == 0] = 1.0
+    return A / deg
 
 
 def normalize_adj(A: np.ndarray) -> np.ndarray:

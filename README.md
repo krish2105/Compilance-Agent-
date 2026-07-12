@@ -235,7 +235,14 @@ account-level transaction graph:
 - **Task:** node classification — is an account involved in laundering, given its
   behavioural features + graph neighbourhood.
 - **Class imbalance** handled with a class-weighted loss (`pos_weight = neg/pos`).
-- **Results (held-out accounts):** F1 **0.70**, PR-AUC **0.83**, ROC-AUC **0.82**.
+- **Architectures:** trains **both a GCN and a GraphSAGE** (inductive mean-aggregator) with
+  **temporal features** (inter-transaction timing, burstiness, night ratio) and **selects the better**
+  by validation PR-AUC — GraphSAGE wins.
+- **Results (held-out accounts):** F1 **0.86**, PR-AUC **0.94**, ROC-AUC **0.94**.
+- **Calibrated** (Platt scaling) so scores are proper probabilities — reports **Brier** + **ECE**.
+- **MLOps:** a versioned **model registry** with a **model card** ([`gnn/registry.py`](backend/gnn/registry.py),
+  MLflow-compatible), and a **PSI drift monitor** ([`gnn/drift.py`](backend/gnn/drift.py)) — both exposed
+  at `GET /api/model`.
 - **Serving:** a new **GNN Detector agent** scores each case's subgraph → per-node
   illicit probability, a case-level GNN risk score, and the top-risk accounts;
   inference is pure NumPy, so it adds negligible weight to the deployed service.
