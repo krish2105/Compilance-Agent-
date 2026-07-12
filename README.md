@@ -338,12 +338,25 @@ Plus the core guardrails (all genuinely functional, not cosmetic):
 
 ---
 
+## Multi-tenancy & SaaS onboarding
+
+Each **organization is an isolated workspace** ([`app/models.py`](backend/app/models.py), [`app/auth.py`](backend/app/auth.py)):
+
+- **Self-serve signup** — `POST /api/auth/register-org` (public) creates a new tenant
+  and its first admin, returning a JWT. The frontend login screen has a
+  **"Create organization"** tab.
+- **Data isolation** — the JWT carries the tenant; every case review, disposition and
+  dashboard aggregate is scoped to the caller's tenant. Two orgs can each reviewing the
+  same alert never see each other's decisions (proven in [`tests/test_tenancy.py`](backend/tests/test_tenancy.py)).
+- **Per-tenant users** — usernames are unique *within* an org; admins manage only their
+  own org's users. The bundled **`demo`** tenant keeps the public demo working unchanged.
+
 ## Auth & RBAC (operational store)
 
 Real multi-user access control ([`app/auth.py`](backend/app/auth.py), [`app/models.py`](backend/app/models.py)):
 
-- **JWT login** (`POST /api/auth/login`) with PBKDF2-hashed passwords; roles
-  **analyst < mlro < admin**. The demo `X-API-Key` still works (maps to a demo admin).
+- **JWT login** (`POST /api/auth/login` with an `org` slug) using PBKDF2-hashed passwords;
+  roles **analyst < mlro < admin**. The demo `X-API-Key` still works (maps to a demo admin).
 - **RBAC enforced per route:** an analyst may **edit** a draft, but only an **MLRO/admin**
   may approve / reject / escalate (the review endpoint returns **403** otherwise);
   only **admin** manages users. The recorded reviewer is the *authenticated* user.
@@ -405,7 +418,10 @@ DECISIONS.md  architecture decision records
 - **Offline LLM prose** is templated (excellent for auditability and $0 running, less "fluent" than a
   live model). *Fix path: set `GEMINI_API_KEY` — the client already routes to it.*
 - **Free-tier cold start.** Render sleeps after ~15 min idle → the first request can take 30–60s.
-- **Single-tenant, lightweight auth** (shared API key) — not an enterprise IAM; no role separation
+- **Multi-tenant now, but lightweight auth** — per-org data isolation + JWT/RBAC exist, but it's
+  not yet enterprise IAM (no SSO/MFA, shared demo key retained). *Fix path: SSO + managed Postgres per the roadmap.*
+- **Shared reference case book** — tenants isolate their *decisions*, but the demo transaction dataset
+  is common; a production deployment would ingest each tenant's own transactions
   (analyst vs MLRO) yet.
 - **Eval covers structure, not subjective quality.** The deterministic gates prove groundedness and
   guardrails; judging prose quality needs the optional LLM-as-judge suite.
