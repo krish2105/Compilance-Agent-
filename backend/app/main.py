@@ -77,6 +77,15 @@ def _startup() -> None:
             "Processed dataset not found at %s. Run `python -m app.data_pipeline` "
             "from the backend/ directory to build it.", settings.duckdb_path
         )
+    # Security posture warnings (loud, non-fatal so the demo still boots).
+    if settings.environment == "production":
+        if settings.jwt_secret == "dev-jwt-secret-change-me":
+            logger.critical("SECURITY: JWT_SECRET is the built-in default in production. "
+                            "Set a strong JWT_SECRET env var — tokens are forgeable otherwise.")
+        from app.db import backend_info
+        if not backend_info().get("durable"):
+            logger.warning("Data is on ephemeral SQLite in production — set DATABASE_URL "
+                           "(managed Postgres) so tenant data survives restarts.")
     logger.info("ComplianceAgent API ready. LLM strategy: %s", settings.llm_provider)
 
 

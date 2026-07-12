@@ -108,10 +108,23 @@ export async function addUser(payload: {
   return handle(res);
 }
 
-/** Change a member's role or active status (admin only). */
+/** Self-service password change. Returns a fresh token (old sessions are revoked). */
+export async function changePassword(
+  oldPassword: string,
+  newPassword: string,
+): Promise<{ ok: boolean; token: string }> {
+  const res = await fetch(`${API_URL}/api/auth/change-password`, {
+    method: "POST",
+    headers: headers(true),
+    body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
+  });
+  return handle(res);
+}
+
+/** Change a member's role, active status, or reset their password (admin only). */
 export async function updateUser(
   username: string,
-  patch: { role?: string; active?: boolean },
+  patch: { role?: string; active?: boolean; password?: string },
 ): Promise<{ ok: boolean; user: TeamMember }> {
   const res = await fetch(`${API_URL}/api/auth/users/${encodeURIComponent(username)}`, {
     method: "PATCH",

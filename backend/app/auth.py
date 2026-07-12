@@ -50,9 +50,27 @@ def verify_password(password: str, stored: str) -> bool:
 def create_token(user: User, tenant_slug: str) -> str:
     payload = {
         "sub": user.username, "role": user.role, "tid": tenant_slug,
+        "tv": user.token_version,  # session-revocation counter
         "exp": datetime.now(timezone.utc) + timedelta(hours=settings.jwt_expire_hours),
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
+
+
+# --------------------------------------------------------------------- password policy
+def password_strength_error(password: str) -> Optional[str]:
+    """Return a human message if the password is too weak, else None."""
+    if len(password) < 8:
+        return "Password must be at least 8 characters."
+    if password.lower() in {"password", "12345678", "changeme", "admin123", "qwerty123"}:
+        return "Password is too common — choose something less guessable."
+    classes = sum(bool(set(password) & s) for s in (
+        set("abcdefghijklmnopqrstuvwxyz"),
+        set("ABCDEFGHIJKLMNOPQRSTUVWXYZ"),
+        set("0123456789"),
+    ))
+    if classes < 2:
+        return "Password must mix at least two of: lower-case, upper-case, digits."
+    return None
 
 
 def _decode_token(token: str) -> Optional[dict]:
@@ -87,13 +105,44 @@ def get_current_principal(request: Request, db: Session = Depends(get_db)) -> Pr
                     select(User).where(User.username == payload["sub"],
                                        User.tenant_id == tenant.id)
                 ).scalar_one_or_none()
-                if user and user.active:
+                # token_version must match — a password change / reset revokes old tokens.
+                if (user and user.active
+                        and payload.get("tv", 0) == user.token_version):
                     return Principal(user.username, user.role, "jwt", tenant.slug)
         raise HTTPException(status_code=401, detail="Invalid or expired token.")
     # Legacy/demo API key → synthetic admin on the demo tenant so the demo keeps working.
     if request.headers.get("x-api-key") == settings.backend_api_key:
         return Principal("demo-api-key", "admin", "api_key", DEMO_TENANT_SLUG)
     raise HTTPException(status_code=401, detail="Not authenticated.")
+
+
+# --------------------------------------------------------------------- login throttle
+_MAX_FAILS = 5
+_LOCK_SECONDS = 900  # 15 min
+_fail_log: dict = {}  # key -> list[timestamps]
+
+
+def _now_ts() -> float:
+    import time
+    return time.time()
+
+
+def login_lock_seconds(key: str) -> int:
+    """Seconds remaining before `key` (org:username) may retry, or 0 if not locked."""
+    now = _now_ts()
+    fails = [t for t in _fail_log.get(key, []) if now - t < _LOCK_SECONDS]
+    _fail_log[key] = fails
+    if len(fails) >= _MAX_FAILS:
+        return int(_LOCK_SECONDS - (now - fails[0])) + 1
+    return 0
+
+
+def record_login_failure(key: str) -> None:
+    _fail_log.setdefault(key, []).append(_now_ts())
+
+
+def clear_login_failures(key: str) -> None:
+    _fail_log.pop(key, None)
 
 
 def require_role(*allowed: str):

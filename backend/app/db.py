@@ -64,9 +64,11 @@ def _migrate_sqlite() -> None:
         insp = inspect(engine)
         if "users" in insp.get_table_names():
             cols = {c["name"] for c in insp.get_columns("users")}
-            if "tenant_id" not in cols:
-                with engine.begin() as con:
+            with engine.begin() as con:
+                if "tenant_id" not in cols:
                     con.execute(text("ALTER TABLE users ADD COLUMN tenant_id INTEGER DEFAULT 1"))
+                if "token_version" not in cols:
+                    con.execute(text("ALTER TABLE users ADD COLUMN token_version INTEGER DEFAULT 0"))
     except Exception:  # noqa: BLE001 - never block startup on a migration
         pass
 

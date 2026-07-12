@@ -24,6 +24,7 @@ interface UiState {
   user: AuthUser | null;
   demoMode: boolean;
   signIn: (token: string, user: AuthUser) => void;
+  setToken: (token: string) => void;
   signOut: () => void;
   enterDemo: () => void;
   enterDemoAs: (username: string, role: Role) => void;
@@ -109,6 +110,14 @@ export const useUi = create<UiState>((set, get) => ({
       /* ignore */
     }
     set({ token, user, demoMode: false });
+  },
+  setToken: (token) => {
+    try {
+      localStorage.setItem("ca-token", token);
+    } catch {
+      /* ignore */
+    }
+    set({ token });
   },
   signOut: () => {
     try {

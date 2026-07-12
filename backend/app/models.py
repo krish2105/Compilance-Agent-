@@ -58,6 +58,9 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(256))
     role: Mapped[str] = mapped_column(String(16), default="analyst")
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Bumped on password change / admin reset — invalidates all previously issued
+    # JWTs for this user (session revocation).
+    token_version: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
 
     def to_public(self) -> dict:

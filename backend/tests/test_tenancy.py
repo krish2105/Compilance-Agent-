@@ -65,12 +65,12 @@ def test_team_management_scoped_and_self_lockout_guarded():
     _setup()
     c = TestClient(app)
     tok = c.post("/api/auth/register-org",
-                 json={"org_name": "Team Co", "username": "boss", "password": "bosspass"}).json()["token"]
+                 json={"org_name": "Team Co", "username": "boss", "password": "Bosspass1"}).json()["token"]
     H = {"Authorization": f"Bearer {tok}"}
 
     # Add an analyst to this org.
     r = c.post("/api/auth/register", headers=H,
-               json={"username": "ana", "password": "anapass", "role": "analyst"})
+               json={"username": "ana", "password": "Anapass12", "role": "analyst"})
     assert r.status_code == 200 and r.json()["user"]["role"] == "analyst"
 
     # Members list is scoped to this org (boss + ana = 2).
@@ -84,7 +84,7 @@ def test_team_management_scoped_and_self_lockout_guarded():
     # Deactivate ana, then a login attempt as ana fails.
     assert c.patch("/api/auth/users/ana", headers=H, json={"active": False}).status_code == 200
     assert c.post("/api/auth/login",
-                  json={"username": "ana", "password": "anapass", "org": "team-co"}).status_code == 401
+                  json={"username": "ana", "password": "Anapass12", "org": "team-co"}).status_code == 401
 
     # Self-lockout guards: boss cannot demote or deactivate themselves.
     assert c.patch("/api/auth/users/boss", headers=H, json={"role": "analyst"}).status_code == 409
@@ -92,6 +92,54 @@ def test_team_management_scoped_and_self_lockout_guarded():
 
     # Cannot manage a user in another org.
     assert c.patch("/api/auth/users/nonexistent", headers=H, json={"role": "mlro"}).status_code == 404
+
+
+def test_security_hardening_password_change_revocation_and_throttle():
+    """Weak passwords rejected; password change revokes old tokens; brute-force locks."""
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    _setup()
+    with TestClient(app) as c:
+        # Weak password rejected at signup.
+        assert c.post("/api/auth/register-org",
+                      json={"org_name": "Sec Co", "username": "seca", "password": "weak"}
+                      ).status_code == 422
+
+        reg = c.post("/api/auth/register-org",
+                     json={"org_name": "Sec Co", "username": "seca", "password": "Str0ngPass1"})
+        old_tok = reg.json()["token"]
+        Hold = {"Authorization": f"Bearer {old_tok}"}
+        assert c.get("/api/auth/me", headers=Hold).status_code == 200
+
+        # Change password → old token is revoked, new token works.
+        ch = c.post("/api/auth/change-password", headers=Hold,
+                    json={"old_password": "Str0ngPass1", "new_password": "N3wStrongPass"})
+        assert ch.status_code == 200
+        new_tok = ch.json()["token"]
+        assert c.get("/api/auth/me", headers=Hold).status_code == 401  # old revoked
+        assert c.get("/api/auth/me",
+                     headers={"Authorization": f"Bearer {new_tok}"}).status_code == 200
+
+        # Wrong old password rejected.
+        assert c.post("/api/auth/change-password",
+                      headers={"Authorization": f"Bearer {new_tok}"},
+                      json={"old_password": "nope", "new_password": "An0therStrong"}
+                      ).status_code == 401
+
+        # Brute-force: 5 bad logins → 6th is locked (429).
+        for _ in range(5):
+            c.post("/api/auth/login",
+                   json={"username": "seca", "password": "bad", "org": "sec-co"})
+        assert c.post("/api/auth/login",
+                      json={"username": "seca", "password": "bad", "org": "sec-co"}
+                      ).status_code == 429
+
+        # Security headers present on responses.
+        h = c.get("/api/health").headers
+        assert h.get("X-Content-Type-Options") == "nosniff"
+        assert h.get("X-Frame-Options") == "DENY"
 
 
 def test_review_isolation_between_tenants():
@@ -140,7 +188,7 @@ def test_per_tenant_ingestion_runs_full_pipeline_and_isolates():
     with TestClient(app) as c:
         tok = c.post("/api/auth/register-org",
                      json={"org_name": "Ingest Co", "username": "ingestadmin",
-                           "password": "iopass1"}).json()["token"]
+                           "password": "Iopass123"}).json()["token"]
         H = {"Authorization": f"Bearer {tok}"}
         rows = [
             {"sender_account": "ACC-1001", "receiver_account": "ACC-3003",
@@ -168,7 +216,7 @@ def test_per_tenant_ingestion_runs_full_pipeline_and_isolates():
         # Another org cannot see it.
         tok2 = c.post("/api/auth/register-org",
                       json={"org_name": "Other Co", "username": "otheradmin",
-                            "password": "o2pass1"}).json()["token"]
+                            "password": "O2pass123"}).json()["token"]
         theirs = c.get("/api/cases", headers={"Authorization": f"Bearer {tok2}"}).json()
         assert not any(x["case_id"] == cid for x in theirs)
 

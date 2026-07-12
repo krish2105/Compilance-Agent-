@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
-import { CheckCircle2, Loader2, ShieldCheck, UserPlus, Users, XCircle } from "lucide-react";
+import { CheckCircle2, KeyRound, Loader2, ShieldCheck, UserPlus, Users, XCircle } from "lucide-react";
 import { useState } from "react";
 import { addUser, listUsers, updateUser, type TeamMember } from "../lib/api";
 import { useUi } from "../lib/store";
@@ -27,7 +27,7 @@ export default function TeamPanel() {
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["team"] });
   const patchMut = useMutation({
-    mutationFn: ({ username, patch }: { username: string; patch: { role?: string; active?: boolean } }) =>
+    mutationFn: ({ username, patch }: { username: string; patch: { role?: string; active?: boolean; password?: string } }) =>
       updateUser(username, patch),
     onSuccess: invalidate,
   });
@@ -75,6 +75,7 @@ export default function TeamPanel() {
                 busy={patchMut.isPending}
                 onRole={(role) => patchMut.mutate({ username: m.username, patch: { role } })}
                 onActive={(active) => patchMut.mutate({ username: m.username, patch: { active } })}
+                onResetPw={(password) => patchMut.mutate({ username: m.username, patch: { password } })}
               />
             ))}
           </AnimatePresence>
@@ -90,13 +91,19 @@ function MemberRow({
   busy,
   onRole,
   onActive,
+  onResetPw,
 }: {
   m: TeamMember;
   isSelf: boolean;
   busy: boolean;
   onRole: (role: string) => void;
   onActive: (active: boolean) => void;
+  onResetPw: (password: string) => void;
 }) {
+  const resetPw = () => {
+    const pw = window.prompt(`Set a new temporary password for ${m.username} (min 8, mixed):`);
+    if (pw && pw.trim()) onResetPw(pw.trim());
+  };
   return (
     <motion.div
       layout
@@ -142,6 +149,15 @@ function MemberRow({
       >
         {m.active ? <XCircle size={14} /> : <CheckCircle2 size={14} />}
         {m.active ? "Disable" : "Enable"}
+      </button>
+
+      <button
+        onClick={resetPw}
+        disabled={busy}
+        title="Reset this member's password"
+        className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-ink-muted transition-colors hover:bg-surface-overlay disabled:opacity-40"
+      >
+        <KeyRound size={14} /> Reset PW
       </button>
     </motion.div>
   );

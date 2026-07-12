@@ -89,7 +89,7 @@ class AuthAndRateLimitMiddleware(BaseHTTPMiddleware):
         return await self._timed(request, call_next)
 
     async def _timed(self, request: Request, call_next):
-        """Run the request and record HTTP metrics."""
+        """Run the request, add security headers, and record HTTP metrics."""
         t0 = time.perf_counter()
         norm = _norm_path(request.url.path)
         try:
@@ -101,4 +101,17 @@ class AuthAndRateLimitMiddleware(BaseHTTPMiddleware):
         finally:
             metrics.HTTP_LATENCY.labels(norm).observe(time.perf_counter() - t0)
         metrics.HTTP_REQUESTS.labels(request.method, norm, str(status)).inc()
+        for k, v in _SECURITY_HEADERS.items():
+            response.headers.setdefault(k, v)
         return response
+
+
+# Applied to every response — baseline hardening (JSON API, so CSP is strict).
+_SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+    "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
+    "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
+}

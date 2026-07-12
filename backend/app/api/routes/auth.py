@@ -40,6 +40,7 @@ class RegisterOrgRequest(BaseModel):
 class UpdateUserRequest(BaseModel):
     role: Optional[str] = None
     active: Optional[bool] = None
+    password: Optional[str] = None  # admin resets a member's password
 
 
 def _tenant_for(principal: auth.Principal, db: Session) -> Tenant:
@@ -48,6 +49,15 @@ def _tenant_for(principal: auth.Principal, db: Session) -> Tenant:
 
 @router.post("/login")
 def login(req: LoginRequest, db: Session = Depends(get_db)) -> dict:
+    # Brute-force protection: lock the (org, username) pair after repeated failures.
+    throttle_key = f"{req.org}:{req.username}"
+    locked = auth.login_lock_seconds(throttle_key)
+    if locked:
+        raise HTTPException(
+            status_code=429,
+            headers={"Retry-After": str(locked)},
+            detail=f"Too many failed attempts. Try again in ~{locked // 60 + 1} min.",
+        )
     tenant = db.execute(select(Tenant).where(Tenant.slug == req.org)).scalar_one_or_none()
     user = None
     if tenant is not None:
@@ -55,7 +65,9 @@ def login(req: LoginRequest, db: Session = Depends(get_db)) -> dict:
             select(User).where(User.username == req.username, User.tenant_id == tenant.id)
         ).scalar_one_or_none()
     if not user or not user.active or not auth.verify_password(req.password, user.hashed_password):
+        auth.record_login_failure(throttle_key)
         raise HTTPException(status_code=401, detail="Invalid username or password.")
+    auth.clear_login_failures(throttle_key)
     return {"token": auth.create_token(user, tenant.slug),
             "user": user.to_public(), "tenant": tenant.to_public()}
 
@@ -63,6 +75,9 @@ def login(req: LoginRequest, db: Session = Depends(get_db)) -> dict:
 @router.post("/register-org")
 def register_org(req: RegisterOrgRequest, db: Session = Depends(get_db)) -> dict:
     """Public self-serve onboarding — create a new organization + its first admin."""
+    weak = auth.password_strength_error(req.password)
+    if weak:
+        raise HTTPException(status_code=422, detail=weak)
     try:
         tenant, user = auth.register_organization(
             db, req.org_name, req.username, req.password, req.email, req.full_name)
@@ -70,6 +85,34 @@ def register_org(req: RegisterOrgRequest, db: Session = Depends(get_db)) -> dict
         raise HTTPException(status_code=409, detail=str(e))
     return {"token": auth.create_token(user, tenant.slug),
             "user": user.to_public(), "tenant": tenant.to_public()}
+
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str = Field(min_length=8)
+
+
+@router.post("/change-password")
+def change_password(req: ChangePasswordRequest,
+                    principal: auth.Principal = Depends(auth.get_current_principal),
+                    db: Session = Depends(get_db)) -> dict:
+    """Self-service password change. Rotates token_version → all existing sessions are
+    revoked; returns a fresh token so the caller stays logged in."""
+    if principal.via != "jwt":
+        raise HTTPException(status_code=403, detail="Demo/API-key sessions can't change a password.")
+    tenant = _tenant_for(principal, db)
+    user = db.execute(
+        select(User).where(User.username == principal.username, User.tenant_id == tenant.id)
+    ).scalar_one_or_none()
+    if not user or not auth.verify_password(req.old_password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Current password is incorrect.")
+    weak = auth.password_strength_error(req.new_password)
+    if weak:
+        raise HTTPException(status_code=422, detail=weak)
+    user.hashed_password = auth.hash_password(req.new_password)
+    user.token_version = (user.token_version or 0) + 1  # revoke old sessions
+    db.commit()
+    return {"ok": True, "token": auth.create_token(user, tenant.slug)}
 
 
 @router.get("/me")
@@ -94,6 +137,9 @@ def register(req: RegisterRequest,
     """Admin adds a teammate — scoped to the admin's own organization."""
     if req.role not in ROLES:
         raise HTTPException(status_code=422, detail=f"role must be one of {ROLES}")
+    weak = auth.password_strength_error(req.password)
+    if weak:
+        raise HTTPException(status_code=422, detail=weak)
     tenant = _tenant_for(principal, db)
     if db.execute(select(User).where(User.username == req.username,
                                      User.tenant_id == tenant.id)).scalar_one_or_none():
@@ -131,5 +177,11 @@ def update_user(username: str, req: UpdateUserRequest,
         if is_self and req.active is False:
             raise HTTPException(status_code=409, detail="You cannot deactivate your own account.")
         user.active = req.active
+    if req.password is not None:
+        weak = auth.password_strength_error(req.password)
+        if weak:
+            raise HTTPException(status_code=422, detail=weak)
+        user.hashed_password = auth.hash_password(req.password)
+        user.token_version = (user.token_version or 0) + 1  # revoke the member's sessions
     db.commit()
     return {"ok": True, "user": user.to_public()}

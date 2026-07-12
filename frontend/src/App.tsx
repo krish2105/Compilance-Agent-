@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Activity, LayoutDashboard, ListChecks, LogOut, ShieldHalf, TriangleAlert, Upload, UserCircle2, Users } from "lucide-react";
+import { Activity, LayoutDashboard, ListChecks, LogOut, ShieldHalf, TriangleAlert, Upload, Users } from "lucide-react";
+import AccountMenu from "./components/AccountMenu";
 import CaseDetail from "./components/CaseDetail";
 import CaseList from "./components/CaseList";
 import Dashboard from "./components/Dashboard";
@@ -21,12 +22,6 @@ export default function App() {
     (health.data?.llm as { provider?: string } | undefined)?.provider ?? "…";
 
   if (!authed) return <LoginScreen />;
-
-  const roleColor: Record<string, string> = {
-    admin: "bg-brand-soft text-brand",
-    mlro: "bg-priority-high/15 text-priority-high",
-    analyst: "bg-priority-medium/15 text-priority-medium",
-  };
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
@@ -90,19 +85,7 @@ export default function App() {
                 LLM · {provider}
               </span>
             )}
-            {user && (
-              <span
-                className={`chip ${roleColor[user.role] ?? "bg-ink-faint/15 text-ink-muted"}`}
-                title={`Signed in as ${user.username} (${user.role})${
-                  user.tenant ? ` · ${user.tenant.name}` : ""
-                }`}
-              >
-                <UserCircle2 size={13} />
-                {user.tenant && !demoMode ? `${user.tenant.name} · ` : ""}
-                {user.username} · {user.role}
-                {demoMode ? " (demo)" : ""}
-              </span>
-            )}
+            {user && <AccountMenu />}
             <button
               onClick={signOut}
               title="Sign out"

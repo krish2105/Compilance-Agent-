@@ -389,6 +389,14 @@ Real multi-user access control ([`app/auth.py`](backend/app/auth.py), [`app/mode
 ## Production hardening
 
 - JWT + RBAC (above); API-key lane retained for the demo.
+- **Session revocation** — JWTs carry a `token_version`; a password change or admin reset bumps it,
+  instantly invalidating every previously-issued token.
+- **Self-service password change** + **admin password reset**, with a **password-strength policy**
+  (min 8, mixed character classes, common-password block).
+- **Brute-force protection** — login locks a `(org, username)` pair after 5 failed attempts (429).
+- **Security headers** on every response (HSTS, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+  strict CSP, Referrer-Policy, Permissions-Policy).
+- **Startup security checks** — loud warnings in production if `JWT_SECRET` is the default or data is non-durable.
 - Per-client sliding-window **rate limiting** on the case-processing endpoints.
 - **Graceful LLM failover** (Gemini → Groq → deterministic offline) with clean, non-stack-trace error
   messages surfaced to the frontend.
