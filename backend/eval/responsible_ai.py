@@ -20,11 +20,22 @@ from app.config import settings  # noqa: E402
 from app.tools import audit, db  # noqa: E402
 from eval import fairness, judge, redteam  # noqa: E402
 
-_GOLDEN = Path(__file__).resolve().parent.parent.parent / "evaluation" / "golden_set.json"
+# Prefer the copy bundled inside the backend image; fall back to the repo-root copy.
+_GOLDEN_CANDIDATES = [
+    Path(__file__).resolve().parent / "golden_set.json",
+    Path(__file__).resolve().parent.parent.parent / "evaluation" / "golden_set.json",
+]
+
+
+def _load_golden_items() -> list:
+    for p in _GOLDEN_CANDIDATES:
+        if p.exists():
+            return json.loads(p.read_text())["items"]
+    return []
 
 
 def _golden_eval() -> Dict[str, Any]:
-    items = json.loads(_GOLDEN.read_text())["items"]
+    items = _load_golden_items()
     scores, fails = [], []
     for it in items:
         result = orchestrator.run_case(it["case_id"])
@@ -54,12 +65,16 @@ def run() -> Dict[str, Any]:
     fair = _fairness_eval()
     summary = {"golden": golden, "redteam": rt, "fairness": fair,
                "llm_judge_available": settings.llm_provider != "offline"}
-    _write(summary)
+    try:
+        _write(summary)  # report file is optional (may be a read-only path in a container)
+    except Exception:  # noqa: BLE001
+        pass
     return summary
 
 
 def _write(s: Dict[str, Any]) -> None:
     out = Path(__file__).resolve().parent.parent.parent / "evaluation" / "responsible_ai.md"
+    out.parent.mkdir(parents=True, exist_ok=True)
     g, rt, f = s["golden"], s["redteam"], s["fairness"]
     rt_rows = "\n".join(f"| {o['name']} | {o['category']} | {o['expect']} | "
                         f"{'blocked' if o['blocked'] else 'answered'} | "
