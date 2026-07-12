@@ -116,15 +116,37 @@ def investigate_async(case_id: str) -> dict:
 
 
 @router.get("/{case_id}/audit")
-def get_audit(case_id: str) -> dict:
+def get_audit(case_id: str,
+              principal: auth.Principal = Depends(auth.get_current_principal)) -> dict:
     """The persisted audit trail: every agent step + every human action."""
     if db.get_case(case_id) is None:
         raise HTTPException(status_code=404, detail=f"Case '{case_id}' not found.")
     return {
         "case_id": case_id,
         "events": audit.get_audit_trail(case_id),
-        "reviews": audit.get_review_history(case_id),
+        "reviews": audit.get_review_history(case_id, principal.tenant),
     }
+
+
+@router.get("/{case_id}/audit.csv")
+def export_audit_csv(case_id: str,
+                     principal: auth.Principal = Depends(auth.get_current_principal)):
+    """Download the case audit trail as CSV (compliance record-keeping)."""
+    import csv
+    import io
+
+    if db.get_case(case_id) is None:
+        raise HTTPException(status_code=404, detail=f"Case '{case_id}' not found.")
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["ts", "actor", "actor_type", "action", "summary", "llm_provider"])
+    for e in audit.get_audit_trail(case_id):
+        w.writerow([e["ts"], e["actor"], e["actor_type"], e["action"],
+                    e.get("summary") or "", e.get("llm_provider") or ""])
+    return Response(
+        content=buf.getvalue(), media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="audit_{case_id}.csv"'},
+    )
 
 
 def _result_and_case(case_id: str):

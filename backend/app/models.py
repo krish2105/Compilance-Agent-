@@ -38,10 +38,11 @@ class Tenant(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     slug: Mapped[str] = mapped_column(String(48), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(128), default="")
+    plan: Mapped[str] = mapped_column(String(16), default="free")  # free | pro | enterprise
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
 
     def to_public(self) -> dict:
-        return {"slug": self.slug, "name": self.name}
+        return {"slug": self.slug, "name": self.name, "plan": self.plan}
 
 
 class User(Base):

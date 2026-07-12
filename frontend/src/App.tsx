@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Activity, LayoutDashboard, ListChecks, LogOut, ShieldHalf, TriangleAlert, Upload, Users } from "lucide-react";
+import { Activity, CreditCard, LayoutDashboard, ListChecks, LogOut, ShieldHalf, TriangleAlert, Upload, Users } from "lucide-react";
 import AccountMenu from "./components/AccountMenu";
+import BillingPanel from "./components/BillingPanel";
 import CaseDetail from "./components/CaseDetail";
 import CaseList from "./components/CaseList";
 import Dashboard from "./components/Dashboard";
@@ -52,7 +53,10 @@ export default function App() {
                 ["dashboard", "Dashboard", <LayoutDashboard size={14} />],
                 ["import", "Import", <Upload size={14} />],
                 ...(user?.role === "admin"
-                  ? [["team", "Team", <Users size={14} />] as const]
+                  ? ([
+                      ["team", "Team", <Users size={14} />],
+                      ["billing", "Billing", <CreditCard size={14} />],
+                    ] as const)
                   : []),
               ] as const
             ).map(
@@ -120,6 +124,10 @@ export default function App() {
       ) : view === "import" ? (
         <main className="mx-auto w-full max-w-[1500px] flex-1 overflow-y-auto p-4">
           <ImportPanel />
+        </main>
+      ) : view === "billing" ? (
+        <main className="mx-auto w-full max-w-[1500px] flex-1 overflow-y-auto p-4">
+          <BillingPanel />
         </main>
       ) : (
         <main className="mx-auto grid w-full max-w-[1500px] flex-1 grid-cols-1 gap-4 overflow-hidden p-4 lg:grid-cols-[360px_1fr]">

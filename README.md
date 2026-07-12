@@ -372,6 +372,19 @@ lives in a single **SQLAlchemy operational store** ([`app/models.py`](backend/ap
   already declared `sync:false` in [`render.yaml`](render.yaml)), then redeploy. Tables are
   auto-created on boot.
 
+## Plans, usage limits & org admin
+
+A billing-shaped capacity layer ([`app/tools/plans.py`](backend/app/tools/plans.py)):
+
+- **Plans** — Free / Pro / Enterprise, each with **team-member** and **uploaded-case** caps.
+  Limits are enforced at creation time (add-member → **402**, ingest → **402**); the demo org is Enterprise (unlimited).
+- **Billing view** (admin) — plan cards, live usage bars, one-click plan switch
+  (`POST /api/auth/billing/plan`). Switching is instant/free here; wiring real Stripe only needs a
+  webhook that sets `Tenant.plan`.
+- **Org admin** — rename the organization (`PATCH /api/auth/org`); manage the team (Phase 3).
+- **Audit export** — download any case's full audit trail as **CSV** (`GET /api/cases/{id}/audit.csv`)
+  for compliance record-keeping.
+
 ## Auth & RBAC (operational store)
 
 Real multi-user access control ([`app/auth.py`](backend/app/auth.py), [`app/models.py`](backend/app/models.py)):

@@ -121,6 +121,43 @@ def me(principal: auth.Principal = Depends(auth.get_current_principal)) -> dict:
             "via": principal.via, "tenant": principal.tenant}
 
 
+class PlanRequest(BaseModel):
+    plan: str
+
+
+class OrgSettingsRequest(BaseModel):
+    name: str = Field(min_length=2, max_length=128)
+
+
+@router.get("/billing")
+def billing(principal: auth.Principal = Depends(auth.get_current_principal)) -> dict:
+    """Current plan, limits and usage for the caller's organization."""
+    from app.tools import plans
+    return plans.usage(principal.tenant)
+
+
+@router.post("/billing/plan")
+def change_plan(req: PlanRequest,
+                principal: auth.Principal = Depends(auth.require_role("admin"))) -> dict:
+    """Change the org plan (billing stub — a real Stripe webhook would set this)."""
+    from app.tools import plans
+    new = plans.set_plan(principal.tenant, req.plan)
+    if new is None:
+        raise HTTPException(status_code=422, detail=f"Unknown plan '{req.plan}'.")
+    return {"ok": True, "plan": new, "billing": plans.usage(principal.tenant)}
+
+
+@router.patch("/org")
+def update_org(req: OrgSettingsRequest,
+               principal: auth.Principal = Depends(auth.require_role("admin")),
+               db: Session = Depends(get_db)) -> dict:
+    """Rename the organization's display name (admin only)."""
+    tenant = _tenant_for(principal, db)
+    tenant.name = req.name.strip()
+    db.commit()
+    return {"ok": True, "tenant": tenant.to_public()}
+
+
 @router.get("/users")
 def list_users(principal: auth.Principal = Depends(auth.require_role("admin")),
                db: Session = Depends(get_db)) -> List[dict]:
@@ -140,6 +177,11 @@ def register(req: RegisterRequest,
     weak = auth.password_strength_error(req.password)
     if weak:
         raise HTTPException(status_code=422, detail=weak)
+    from app.tools import plans
+    try:
+        plans.check_can_add_member(principal.tenant)
+    except plans.LimitError as e:
+        raise HTTPException(status_code=402, detail=str(e))
     tenant = _tenant_for(principal, db)
     if db.execute(select(User).where(User.username == req.username,
                                      User.tenant_id == tenant.id)).scalar_one_or_none():

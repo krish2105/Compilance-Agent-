@@ -43,6 +43,11 @@ def template() -> str:
 def _finalize(tenant: str, rows: List[dict], summary: Optional[str]) -> dict:
     if summary and guardrails.detect_prompt_injection(summary):
         raise HTTPException(status_code=422, detail="Potential injection in summary; rejected.")
+    from app.tools import plans
+    try:
+        plans.check_can_upload(tenant)
+    except plans.LimitError as e:
+        raise HTTPException(status_code=402, detail=str(e))
     try:
         case = tenant_data.ingest_case(tenant, rows, summary=summary)
     except tenant_data.IngestError as e:

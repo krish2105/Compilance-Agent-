@@ -78,6 +78,52 @@ export async function ingestCsv(
 
 export const ingestTemplateUrl = `${API_URL}/api/ingest/template`;
 
+export interface BillingInfo {
+  plan: string;
+  limits: { label: string; price_usd: number; max_members: number | null; max_uploaded_cases: number | null };
+  usage: { members: number; uploaded_cases: number };
+  plans: Record<string, { label: string; price_usd: number; max_members: number | null; max_uploaded_cases: number | null }>;
+}
+
+/** Current plan, limits and usage for the caller's org. */
+export async function getBilling(): Promise<BillingInfo> {
+  const res = await fetch(`${API_URL}/api/auth/billing`, { headers: headers() });
+  return handle<BillingInfo>(res);
+}
+
+/** Change the org plan (admin). */
+export async function changePlan(plan: string): Promise<{ ok: boolean; plan: string; billing: BillingInfo }> {
+  const res = await fetch(`${API_URL}/api/auth/billing/plan`, {
+    method: "POST",
+    headers: headers(true),
+    body: JSON.stringify({ plan }),
+  });
+  return handle(res);
+}
+
+/** Rename the organization's display name (admin). */
+export async function renameOrg(name: string): Promise<{ ok: boolean; tenant: { slug: string; name: string } }> {
+  const res = await fetch(`${API_URL}/api/auth/org`, {
+    method: "PATCH",
+    headers: headers(true),
+    body: JSON.stringify({ name }),
+  });
+  return handle(res);
+}
+
+/** Download a case's audit trail as CSV (with auth). */
+export async function downloadAuditCsv(caseId: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/cases/${caseId}/audit.csv`, { headers: headers() });
+  if (!res.ok) throw new Error(`Export failed: ${res.status}`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `audit_${caseId}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export interface TeamMember {
   username: string;
   email: string;

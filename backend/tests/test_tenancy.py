@@ -142,6 +142,47 @@ def test_security_hardening_password_change_revocation_and_throttle():
         assert h.get("X-Frame-Options") == "DENY"
 
 
+def test_plans_usage_limits_and_billing():
+    """Free plan caps members; upgrading lifts the cap; org rename + audit CSV work."""
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    _setup()
+    with TestClient(app) as c:
+        tok = c.post("/api/auth/register-org",
+                     json={"org_name": "Plan Co", "username": "planadmin",
+                           "password": "Str0ngPass1"}).json()["token"]
+        H = {"Authorization": f"Bearer {tok}"}
+
+        b = c.get("/api/auth/billing", headers=H).json()
+        assert b["plan"] == "free" and b["limits"]["max_members"] == 3
+
+        def add(u):
+            return c.post("/api/auth/register", headers=H,
+                          json={"username": u, "password": "Str0ngPass1", "role": "analyst"}).status_code
+        assert add("member2") == 200
+        assert add("member3") == 200
+        assert add("member4") == 402          # free plan cap (3) exceeded
+
+        assert c.post("/api/auth/billing/plan", headers=H, json={"plan": "pro"}).json()["plan"] == "pro"
+        assert add("member4") == 200          # cap lifted after upgrade
+        assert c.post("/api/auth/billing/plan", headers=H, json={"plan": "nope"}).status_code == 422
+
+        # Org rename.
+        assert c.patch("/api/auth/org", headers=H,
+                       json={"name": "Renamed Co"}).json()["tenant"]["name"] == "Renamed Co"
+
+        # Audit CSV export.
+        cid = c.post("/api/ingest/transactions", headers=H,
+                     json={"rows": [{"sender_account": "A", "receiver_account": "B", "amount": 50000}]}
+                     ).json()["case"]["case_id"]
+        c.post(f"/api/cases/{cid}/investigate", headers=H)
+        r = c.get(f"/api/cases/{cid}/audit.csv", headers=H)
+        assert r.status_code == 200 and "text/csv" in r.headers["content-type"]
+        assert len(r.text.strip().splitlines()) > 1
+
+
 def test_review_isolation_between_tenants():
     _setup()
     case_id = "CASE-0001"

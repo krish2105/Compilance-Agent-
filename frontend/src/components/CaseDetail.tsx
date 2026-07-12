@@ -13,7 +13,7 @@ import {
   Target,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { getCaseDetail, openCaseReport } from "../lib/api";
+import { downloadAuditCsv, getCaseDetail, openCaseReport } from "../lib/api";
 import { useAgentStream } from "../hooks/useAgentStream";
 import { useUi } from "../lib/store";
 import type { InvestigationResult } from "../lib/types";
@@ -92,13 +92,22 @@ export default function CaseDetail() {
           )}
         </div>
         {result && !result.error && (
-          <button
-            onClick={() => openCaseReport(selectedCaseId).catch(() => undefined)}
-            className="btn-ghost"
-            title="Open a printable case report (save as PDF)"
-          >
-            <FileDown size={15} /> Report
-          </button>
+          <>
+            <button
+              onClick={() => openCaseReport(selectedCaseId).catch(() => undefined)}
+              className="btn-ghost"
+              title="Open a printable case report (save as PDF)"
+            >
+              <FileDown size={15} /> Report
+            </button>
+            <button
+              onClick={() => downloadAuditCsv(selectedCaseId).catch(() => undefined)}
+              className="btn-ghost"
+              title="Export the audit trail as CSV"
+            >
+              <FileDown size={15} /> Audit CSV
+            </button>
+          </>
         )}
         <button
           onClick={() => stream.start(selectedCaseId)}

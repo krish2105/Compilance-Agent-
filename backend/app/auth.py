@@ -208,6 +208,7 @@ def seed_default_users() -> None:
     db = SessionLocal()
     try:
         tenant = get_or_create_tenant(db, DEMO_TENANT_SLUG, "Demo Organization")
+        tenant.plan = "enterprise"  # the public demo is never limited
         for username, pw, role, full_name in _DEFAULT_USERS:
             exists = db.execute(
                 select(User).where(User.username == username, User.tenant_id == tenant.id)
