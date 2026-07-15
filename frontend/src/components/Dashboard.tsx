@@ -200,29 +200,24 @@ export default function Dashboard() {
           <motion.div
             key={t.label}
             variants={item}
-            whileHover={{ y: -4, transition: { duration: 0.2 } }}
-            className="group glass relative overflow-hidden p-4"
+            className="group card p-4 transition-colors"
           >
-            <div
-              className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full opacity-20 blur-2xl transition-opacity duration-300 group-hover:opacity-40"
-              style={{ background: rgb(t.token) }}
-            />
-            <div className="mb-2 flex items-center justify-between">
+            <div className="mb-3 flex items-center justify-between">
               <span
-                className="flex h-8 w-8 items-center justify-center rounded-xl"
-                style={{ background: rgb(t.token, 0.14), color: rgb(t.token) }}
+                className="flex h-8 w-8 items-center justify-center rounded-lg"
+                style={{ background: rgb(t.token, 0.12), color: rgb(t.token) }}
               >
                 {t.icon}
               </span>
               <ArrowUpRight
-                size={14}
+                size={13}
                 className="text-ink-faint opacity-0 transition-opacity group-hover:opacity-100"
               />
             </div>
-            <p className="font-mono text-[26px] font-extrabold leading-none text-ink">
+            <p className="font-mono text-[26px] font-bold leading-none tracking-tight text-ink">
               <Stat value={t.value} suffix={(t as any).suffix} />
             </p>
-            <p className="mt-1.5 label">{t.label}</p>
+            <p className="mt-2 label">{t.label}</p>
             <p className="mt-0.5 text-[11px] text-ink-faint">{t.sub}</p>
           </motion.div>
         ))}
@@ -389,16 +384,13 @@ function BarCard({
           return (
             <div key={k} className="flex items-center gap-3">
               <span className="w-32 shrink-0 truncate text-[12px] text-ink-muted">{k}</span>
-              <div className="relative h-3.5 flex-1 overflow-hidden rounded-full bg-ink-faint/10">
+              <div className="relative h-2.5 flex-1 overflow-hidden rounded-full bg-ink-faint/10">
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${(v / max) * 100}%` }}
-                  transition={{ duration: 0.8, delay: i * 0.05, ease: "easeOut" }}
+                  transition={{ duration: 0.7, delay: i * 0.04, ease: "easeOut" }}
                   className="h-full rounded-full"
-                  style={{
-                    background: `linear-gradient(90deg, ${rgb(token, 0.65)}, ${rgb(token)})`,
-                    boxShadow: `0 0 12px ${rgb(token, 0.4)}`,
-                  }}
+                  style={{ background: rgb(token) }}
                 />
               </div>
               <span className="w-8 text-right font-mono text-[12px] font-semibold text-ink">{v}</span>
@@ -432,13 +424,13 @@ function TypologyCard({ rows }: { rows: [string, number][] }) {
               {i + 1}
             </span>
             <span className="w-44 shrink-0 truncate text-[12px] text-ink-muted">{label}</span>
-            <div className="h-3.5 flex-1 overflow-hidden rounded-full bg-ink-faint/10">
+            <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-ink-faint/10">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${(count / max) * 100}%` }}
-                transition={{ duration: 0.8, delay: i * 0.05, ease: "easeOut" }}
+                transition={{ duration: 0.7, delay: i * 0.04, ease: "easeOut" }}
                 className="h-full rounded-full"
-                style={{ background: `linear-gradient(90deg, ${rgb("--accent", 0.6)}, ${rgb("--accent")})` }}
+                style={{ background: rgb("--brand") }}
               />
             </div>
             <span className="w-8 text-right font-mono text-[12px] font-semibold text-ink">{count}</span>

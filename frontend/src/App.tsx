@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { motion } from "framer-motion";
-import { Activity, ArrowLeft, Command, Languages, LogOut, ShieldHalf, TriangleAlert } from "lucide-react";
+import { ArrowLeft, Command, ShieldHalf } from "lucide-react";
 import AccountMenu from "./components/AccountMenu";
 import BillingPanel from "./components/BillingPanel";
 import CaseDetail from "./components/CaseDetail";
@@ -10,10 +9,11 @@ import Dashboard from "./components/Dashboard";
 import ImportPanel from "./components/ImportPanel";
 import LoginScreen from "./components/LoginScreen";
 import MobileNav from "./components/MobileNav";
+import ResizableSplit from "./components/ResizableSplit";
 import TeamPanel from "./components/TeamPanel";
 import ThemeToggle from "./components/ThemeToggle";
+import { useMediaQuery } from "./hooks/useMediaQuery";
 import { useT } from "./lib/i18n";
-import { useI18n } from "./lib/i18n";
 import { fetchHealth } from "./lib/api";
 import { navFor } from "./lib/nav";
 import { useUi } from "./lib/store";
@@ -21,14 +21,15 @@ import { cx } from "./lib/utils";
 
 export default function App() {
   const t = useT();
-  const toggleLang = useI18n((s) => s.toggleLang);
-  const lang = useI18n((s) => s.lang);
-  const { user, token, demoMode, signOut, view, setView, selectedCaseId, selectCase } = useUi();
+  const { user, token, demoMode, view, setView, selectedCaseId, selectCase } = useUi();
   const authed = !!token || demoMode;
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
 
   const health = useQuery({ queryKey: ["health"], queryFn: fetchHealth, retry: 1, enabled: authed });
   const online = health.isSuccess;
-  const provider = (health.data?.llm as { provider?: string } | undefined)?.provider ?? "…";
+  const rawProvider = (health.data?.llm as { provider?: string } | undefined)?.provider ?? "…";
+  // "offline" is the deterministic-LLM mode name — misleading next to a live dot.
+  const provider = rawProvider === "offline" ? "Local" : rawProvider;
 
   if (!authed) return <LoginScreen />;
 
@@ -43,30 +44,23 @@ export default function App() {
         Skip to content
       </a>
 
-      {/* Header */}
-      <header className="z-20 border-b border-line/70 bg-surface-raised/70 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-[1500px] items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3">
-          <motion.div
-            initial={{ rotate: -12, opacity: 0 }}
-            animate={{ rotate: 0, opacity: 1 }}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand text-white shadow-glow sm:h-10 sm:w-10"
-          >
-            <ShieldHalf size={20} />
-          </motion.div>
-          <div className="min-w-0 flex-1">
-            <h1 className="flex items-center gap-2 truncate text-sm font-extrabold tracking-tight text-ink sm:text-base">
-              ComplianceAgent
-              <span className="chip hidden shrink-0 bg-brand-soft text-brand lg:inline-flex">
-                {t("app.tagline")}
-              </span>
-            </h1>
-            <p className="hidden text-[11px] text-ink-faint lg:block">{t("app.subtitle")}</p>
+      {/* Header — one clean row. */}
+      <header className="z-20 border-b border-line bg-surface-base/80 backdrop-blur-sm">
+        <div className="mx-auto flex h-14 max-w-[1440px] items-center gap-3 px-3 sm:px-5">
+          {/* Brand */}
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand text-white">
+              <ShieldHalf size={17} />
+            </div>
+            <span className="hidden text-[15px] font-bold tracking-tight text-ink sm:inline">
+              Compliance<span className="text-ink-muted">Agent</span>
+            </span>
           </div>
 
-          {/* Desktop nav */}
+          {/* Desktop nav — quiet segmented control. */}
           <nav
             aria-label="Primary"
-            className="ms-4 hidden items-center gap-1 rounded-xl border border-line bg-surface-raised/60 p-1 md:flex"
+            className="ms-2 hidden items-center gap-0.5 rounded-lg border border-line bg-surface-raised/60 p-0.5 md:flex"
           >
             {navFor(user?.role).map((it) => (
               <button
@@ -74,8 +68,10 @@ export default function App() {
                 onClick={() => setView(it.view)}
                 aria-current={view === it.view ? "page" : undefined}
                 className={cx(
-                  "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all",
-                  view === it.view ? "bg-brand text-white shadow-glow" : "text-ink-muted hover:bg-surface-overlay",
+                  "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors",
+                  view === it.view
+                    ? "bg-brand text-white"
+                    : "text-ink-muted hover:bg-surface-overlay hover:text-ink",
                 )}
               >
                 {it.icon} {t(it.key)}
@@ -83,107 +79,97 @@ export default function App() {
             ))}
           </nav>
 
-          <div className="ms-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
-            {/* Command palette trigger (desktop) */}
+          <div className="ms-auto flex shrink-0 items-center gap-1.5">
+            {/* Live status — a single dot, details on hover. */}
+            <span
+              className="flex items-center gap-1.5 rounded-full border border-line px-2.5 py-1"
+              title={
+                online
+                  ? `${t("status.connected")} · LLM ${provider}`
+                  : t("status.offline")
+              }
+              aria-label={online ? t("status.connected") : t("status.offline")}
+            >
+              <span className="relative flex h-2 w-2">
+                {online && (
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-positive/60" />
+                )}
+                <span
+                  className={cx(
+                    "relative inline-flex h-2 w-2 rounded-full",
+                    online ? "bg-positive" : "bg-danger",
+                  )}
+                />
+              </span>
+              <span className="hidden text-[11px] font-medium text-ink-muted lg:inline">
+                {online ? provider : t("status.offline")}
+              </span>
+            </span>
+
+            {/* Command palette */}
             <button
               onClick={openCmd}
               aria-label="Open command palette"
-              className="hidden h-9 items-center gap-1.5 rounded-full border border-line bg-surface-raised/70 px-3 text-xs text-ink-faint hover:text-ink lg:flex"
+              className="hidden h-8 items-center gap-1.5 rounded-lg border border-line px-2.5 text-[11px] text-ink-faint transition-colors hover:text-ink lg:flex"
             >
-              <Command size={13} /> <kbd className="font-sans">⌘K</kbd>
+              <Command size={12} /> <kbd className="font-sans">⌘K</kbd>
             </button>
-            {/* API status — icon-only chip on mobile, full text on desktop */}
-            <span
-              className={cx(
-                "flex h-9 items-center gap-1.5 rounded-full px-2.5",
-                online ? "bg-ok/15 text-ok" : "bg-danger/15 text-danger",
-              )}
-              title={online ? t("status.connected") : t("status.offline")}
-              aria-label={online ? t("status.connected") : t("status.offline")}
-            >
-              <Activity size={14} />
-              <span className="hidden text-xs font-semibold lg:inline">
-                {online ? t("status.connected") : t("status.offline")}
-              </span>
-            </span>
-            {online && (
-              <span className="chip hidden bg-brand-soft text-brand xl:inline-flex" title="Active LLM provider">
-                LLM · {provider}
-              </span>
-            )}
-            {/* Language + sign out live in the header on desktop, in the account menu on mobile */}
-            <button
-              onClick={toggleLang}
-              aria-label="Switch language"
-              title="English / عربى"
-              className="hidden h-9 w-9 items-center justify-center rounded-full border border-line bg-surface-raised/70 text-ink-muted hover:text-ink md:flex"
-            >
-              <Languages size={15} />
-              <span className="sr-only">{lang}</span>
-            </button>
+
             {user && <AccountMenu />}
-            <button
-              onClick={signOut}
-              aria-label={t("action.signout")}
-              title={t("action.signout")}
-              className="hidden h-9 w-9 items-center justify-center rounded-full border border-line bg-surface-raised/70 text-ink-muted hover:border-danger/50 hover:text-danger md:flex"
-            >
-              <LogOut size={15} />
-            </button>
             <ThemeToggle />
           </div>
         </div>
-
-        {/* Disclaimer banner */}
-        <div className="flex items-center gap-2 border-t border-warn/20 bg-warn/10 px-3 py-1.5 text-[10px] text-warn sm:px-4 sm:text-[11px]">
-          <TriangleAlert size={13} className="shrink-0" />
-          <span className="truncate">{t("disclaimer")}</span>
-        </div>
       </header>
+
+      {/* Slim disclaimer strip. */}
+      <div className="flex items-center justify-center gap-1.5 border-b border-line bg-surface-raised/40 px-4 py-1 text-[10.5px] text-ink-faint">
+        <span className="h-1 w-1 rounded-full bg-warn/70" />
+        <span className="truncate">{t("disclaimer")}</span>
+      </div>
 
       {/* Body */}
       {view === "dashboard" ? (
-        <main id="main" className="mx-auto w-full max-w-[1500px] flex-1 overflow-y-auto p-3 pb-24 sm:p-4 md:pb-4">
+        <main id="main" className="mx-auto w-full max-w-[1440px] flex-1 overflow-y-auto p-4 pb-24 sm:p-6 md:pb-6">
           <Dashboard />
         </main>
       ) : view === "team" ? (
-        <main id="main" className="mx-auto w-full max-w-[1500px] flex-1 overflow-y-auto p-3 pb-24 sm:p-4 md:pb-4">
+        <main id="main" className="mx-auto w-full max-w-[1440px] flex-1 overflow-y-auto p-4 pb-24 sm:p-6 md:pb-6">
           <TeamPanel />
         </main>
       ) : view === "import" ? (
-        <main id="main" className="mx-auto w-full max-w-[1500px] flex-1 overflow-y-auto p-3 pb-24 sm:p-4 md:pb-4">
+        <main id="main" className="mx-auto w-full max-w-[1440px] flex-1 overflow-y-auto p-4 pb-24 sm:p-6 md:pb-6">
           <ImportPanel />
         </main>
       ) : view === "billing" ? (
-        <main id="main" className="mx-auto w-full max-w-[1500px] flex-1 overflow-y-auto p-3 pb-24 sm:p-4 md:pb-4">
+        <main id="main" className="mx-auto w-full max-w-[1440px] flex-1 overflow-y-auto p-4 pb-24 sm:p-6 md:pb-6">
           <BillingPanel />
         </main>
+      ) : isDesktop ? (
+        // Desktop: draggable, resizable two-pane layout.
+        <main id="main" className="mx-auto w-full max-w-[1440px] flex-1 overflow-hidden p-4 sm:p-6">
+          <ResizableSplit
+            className="h-full"
+            left={<CaseList />}
+            right={<CaseDetail />}
+          />
+        </main>
       ) : (
-        <main
-          id="main"
-          className="mx-auto grid w-full max-w-[1500px] flex-1 grid-cols-1 gap-4 overflow-hidden p-3 pb-24 sm:p-4 md:pb-4 lg:grid-cols-[360px_1fr]"
-        >
-          {/* Case list — full-screen on mobile until a case is picked */}
-          <aside
-            className={cx(
-              "glass min-h-0 flex-col p-3 lg:flex",
-              selectedCaseId ? "hidden lg:flex" : "flex",
-            )}
-          >
+        // Mobile/tablet: master-detail stack (list, then full-screen detail).
+        <main id="main" className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col overflow-hidden p-4 pb-24">
+          <div className={cx("min-h-0 flex-col", selectedCaseId ? "hidden" : "flex")}>
             <CaseList />
-          </aside>
-          {/* Case detail — full-screen on mobile once a case is picked */}
-          <section className={cx("min-h-0", selectedCaseId ? "block" : "hidden lg:block")}>
+          </div>
+          <div className={cx("min-h-0 flex-1", selectedCaseId ? "block" : "hidden")}>
             {selectedCaseId && (
               <button
                 onClick={() => selectCase(null)}
-                className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-brand lg:hidden"
+                className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-brand"
               >
                 <ArrowLeft size={16} /> {t("action.back")}
               </button>
             )}
             <CaseDetail />
-          </section>
+          </div>
         </main>
       )}
 

@@ -168,16 +168,16 @@ export default function CaseDetail() {
               />
 
               {/* Tabs */}
-              <div className="glass-soft flex flex-wrap gap-1 p-1.5">
+              <div className="flex flex-wrap gap-0.5 rounded-lg border border-line bg-surface-raised/60 p-0.5">
                 {TABS.map((t) => (
                   <button
                     key={t.key}
                     onClick={() => setTab(t.key)}
                     className={cx(
-                      "flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-all",
+                      "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
                       tab === t.key
-                        ? "bg-brand text-white shadow-glow"
-                        : "text-ink-muted hover:bg-surface-overlay",
+                        ? "bg-brand text-white"
+                        : "text-ink-muted hover:bg-surface-overlay hover:text-ink",
                     )}
                   >
                     {t.icon}
@@ -224,14 +224,14 @@ function EmptyState() {
   return (
     <div className="flex h-full items-center justify-center">
       <motion.div
-        initial={{ opacity: 0, scale: 0.96 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="glass max-w-md p-8 text-center"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="max-w-md p-8 text-center"
       >
-        <div className="mx-auto mb-4 flex h-14 w-14 animate-float items-center justify-center rounded-2xl bg-brand text-white shadow-glow">
-          <Landmark size={26} />
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl border border-line bg-surface-raised text-brand">
+          <Landmark size={24} />
         </div>
-        <h2 className="text-lg font-bold text-ink">Select a case to investigate</h2>
+        <h2 className="text-lg font-bold tracking-tight text-ink">Select a case to investigate</h2>
         <p className="mt-2 text-sm text-ink-muted">
           ComplianceAgent pre-screens flagged transactions, drafts EDD narratives with cited
           evidence, verifies every claim, and routes each case through a human approval gate.

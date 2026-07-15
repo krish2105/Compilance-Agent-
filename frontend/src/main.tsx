@@ -19,11 +19,16 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   </React.StrictMode>,
 );
 
-// PWA: register the service worker (app-shell offline cache). Best-effort.
+// PWA: register the service worker (app-shell offline cache) in production only.
+// In dev it would serve stale bundles and fight HMR, so we skip and clean up.
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch(() => {
-      /* offline support is optional */
+  if (import.meta.env.PROD) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("/sw.js").catch(() => {
+        /* offline support is optional */
+      });
     });
-  });
+  } else {
+    navigator.serviceWorker.getRegistrations().then((regs) => regs.forEach((r) => r.unregister()));
+  }
 }

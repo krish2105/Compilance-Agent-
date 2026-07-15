@@ -20,7 +20,7 @@ approval gate** — it never auto-clears or auto-reports.
 📐 [Architecture](docs/ARCHITECTURE.md) · 🧭 [ADRs](docs/adr/) · 📝 [Case study](docs/CASE_STUDY.md) · 🔌 [Postman collection](docs/ComplianceAgent.postman_collection.json) · 🗂️ [Model card](docs/MODEL_CARD.md) · [Data sheet](docs/DATA_SHEET.md)
 
 ### 🔗 Live demo
-- **App (Vercel):** https://frontend-three-pi-15.vercel.app
+- **App (Vercel):** https://complianceagent-drab.vercel.app
 - **API (Render):** https://complianceagent-backend.onrender.com/api/health
 - _The API runs on Render's free tier and **sleeps after ~15 min idle**, so the first request after inactivity has a ~30–60s cold start — just give the first case a moment to load._
 
@@ -152,6 +152,13 @@ npm run dev
 ```
 Open the printed URL (e.g. <http://localhost:5173>). Select a case → **Run investigation** → watch the
 agents stream → review the draft → **Approve / Edit / Reject** at the human gate.
+
+**Design system.** A restrained *Graphite + Emerald* UI: one emerald accent over a graphite
+neutral ramp, disciplined status/risk colours (used only as dots, thin borders and text), flat
+surfaces with hairline borders (glass reserved for the ⌘K palette and modals), and purposeful,
+`prefers-reduced-motion`-safe motion. First-class light **and** dark themes, mobile-first
+(installable PWA, bottom nav), i18n/RTL, and a **draggable, resizable case-queue** on desktop
+(pointer + keyboard, persisted width).
 
 ### 3. Docker (backend)
 ```bash
@@ -467,7 +474,7 @@ Real multi-user access control ([`app/auth.py`](backend/app/auth.py), [`app/mode
   cold-start delay (typically 30–60s) — expected for a portfolio demo.
 - **Frontend → Vercel** (Hobby). Set `VITE_API_URL` to the live backend URL and `VITE_API_KEY` to match
   the backend's `BACKEND_API_KEY`.
-- **Live demo:** https://frontend-three-pi-15.vercel.app (API: https://complianceagent-backend.onrender.com)
+- **Live demo:** https://complianceagent-drab.vercel.app (API: https://complianceagent-backend.onrender.com)
   · **Walkthrough:** see [`docs/demo_video_link.md`](docs/demo_video_link.md).
 
 ---

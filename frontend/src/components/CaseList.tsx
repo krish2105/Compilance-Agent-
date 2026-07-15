@@ -38,15 +38,15 @@ export default function CaseList() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="mb-3 flex items-center justify-between px-1">
+      <div className="mb-3 flex items-center justify-between px-0.5">
         <div>
-          <h2 className="text-sm font-bold text-ink">Case Queue</h2>
-          <p className="text-xs text-ink-faint">
+          <h2 className="text-[15px] font-bold tracking-tight text-ink">Case Queue</h2>
+          <p className="mt-0.5 text-xs text-ink-faint">
             {data ? `${data.length} cases · ${pending} pending review` : "Loading…"}
           </p>
         </div>
-        <span className="chip bg-brand-soft text-brand">
-          <AlertTriangle size={13} /> Alerts
+        <span className="chip bg-warn/10 text-warn ring-1 ring-inset ring-warn/25">
+          <AlertTriangle size={12} /> {pending}
         </span>
       </div>
 
@@ -86,10 +86,10 @@ export default function CaseList() {
         </select>
       </div>
 
-      <div className="-mr-2 flex-1 space-y-2.5 overflow-y-auto pr-2">
+      <div className="-mr-2 flex-1 space-y-1.5 overflow-y-auto pr-2">
         {isLoading &&
-          Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-24 animate-pulse rounded-xl bg-surface-raised/50" />
+          Array.from({ length: 7 }).map((_, i) => (
+            <div key={i} className="h-[74px] animate-pulse rounded-xl bg-surface-raised/50" />
           ))}
         {isError && (
           <div className="glass-soft p-4 text-sm text-danger">
@@ -131,34 +131,41 @@ function CaseCard({
   return (
     <motion.button
       layout
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
-      transition={{ delay: Math.min(index * 0.03, 0.3) }}
+      transition={{ delay: Math.min(index * 0.02, 0.2), duration: 0.22 }}
       onClick={onClick}
       className={cx(
-        "group w-full rounded-xl border p-3.5 text-left transition-all duration-300",
+        "group relative w-full overflow-hidden rounded-xl border p-3 text-left transition-colors duration-150",
         active
-          ? "border-brand/60 bg-brand-soft/40 shadow-glow"
-          : "border-line bg-surface-raised/60 hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-float",
+          ? "border-line bg-brand/[0.06]"
+          : "border-line bg-surface-raised/50 hover:border-line hover:bg-surface-overlay",
       )}
     >
-      <div className="mb-1.5 flex items-center justify-between gap-2">
-        <span className="font-mono text-xs font-semibold text-ink">{c.case_id}</span>
-        <span className={cx("chip", p.chip)}>
+      {/* Active accent rail */}
+      <span
+        className={cx(
+          "absolute inset-y-0 left-0 w-0.5 rounded-r bg-brand transition-opacity",
+          active ? "opacity-100" : "opacity-0",
+        )}
+      />
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <span className="font-mono text-[11px] font-semibold tracking-tight text-ink">{c.case_id}</span>
+        <span className={cx("chip px-2 py-0.5 text-[10.5px]", p.chip)}>
           <span className={cx("h-1.5 w-1.5 rounded-full", p.dot)} /> {p.label}
         </span>
       </div>
-      <p className="line-clamp-2 text-[13px] leading-snug text-ink-muted">{c.alert_summary}</p>
-      <div className="mt-2.5 flex items-center justify-between">
-        <span className="font-mono text-[11px] text-ink-faint">{c.transaction_count} txns</span>
+      <p className="line-clamp-2 text-[12.5px] leading-snug text-ink-muted">{c.alert_summary}</p>
+      <div className="mt-2 flex items-center justify-between">
+        <span className="font-mono text-[10.5px] text-ink-faint">{c.transaction_count} txns</span>
         <span
           className={cx(
-            "chip text-[10px]",
-            reviewed ? reviewStatusStyle(c.review_status) : "bg-ink-faint/10 text-ink-faint",
+            "chip px-2 py-0.5 text-[10px]",
+            reviewed ? reviewStatusStyle(c.review_status) : "text-ink-faint",
           )}
         >
-          {reviewed ? <ShieldCheck size={11} /> : null}
+          {reviewed ? <ShieldCheck size={10} /> : null}
           {prettyStatus(c.review_status)}
         </span>
       </div>

@@ -16,35 +16,38 @@ export function fmtNum(n: number): string {
   return n.toLocaleString();
 }
 
+/* Quiet, premium status chips: a low-alpha wash + text + a hairline ring.
+   The coloured dot carries the signal; the chip stays calm. */
 export const priorityStyles: Record<Priority, { chip: string; dot: string; label: string }> = {
   Critical: {
-    chip: "bg-priority-critical/15 text-priority-critical border border-priority-critical/30",
+    chip: "bg-priority-critical/10 text-priority-critical ring-1 ring-inset ring-priority-critical/25",
     dot: "bg-priority-critical",
     label: "Critical",
   },
   High: {
-    chip: "bg-priority-high/15 text-priority-high border border-priority-high/30",
+    chip: "bg-priority-high/10 text-priority-high ring-1 ring-inset ring-priority-high/25",
     dot: "bg-priority-high",
     label: "High",
   },
   Medium: {
-    chip: "bg-priority-medium/15 text-priority-medium border border-priority-medium/30",
+    chip: "bg-priority-medium/10 text-priority-medium ring-1 ring-inset ring-priority-medium/25",
     dot: "bg-priority-medium",
     label: "Medium",
   },
   Low: {
-    chip: "bg-priority-low/15 text-priority-low border border-priority-low/30",
+    chip: "bg-priority-low/10 text-priority-low ring-1 ring-inset ring-priority-low/25",
     dot: "bg-priority-low",
     label: "Low",
   },
 };
 
 export function reviewStatusStyle(status: string): string {
-  if (status.startsWith("APPROVED")) return "bg-ok/15 text-ok border border-ok/30";
-  if (status.startsWith("REJECTED")) return "bg-danger/15 text-danger border border-danger/30";
-  if (status.startsWith("EDITED")) return "bg-warn/15 text-warn border border-warn/30";
-  if (status.startsWith("ESCALATED")) return "bg-accent/15 text-accent border border-accent/30";
-  return "bg-ink-faint/15 text-ink-muted border border-line";
+  const base = "ring-1 ring-inset";
+  if (status.startsWith("APPROVED")) return `bg-positive/10 text-positive ${base} ring-positive/25`;
+  if (status.startsWith("REJECTED")) return `bg-danger/10 text-danger ${base} ring-danger/25`;
+  if (status.startsWith("EDITED")) return `bg-warn/10 text-warn ${base} ring-warn/25`;
+  if (status.startsWith("ESCALATED")) return `bg-brand/10 text-brand ${base} ring-brand/25`;
+  return `bg-ink-faint/10 text-ink-muted ${base} ring-line`;
 }
 
 export function prettyStatus(status: string): string {
