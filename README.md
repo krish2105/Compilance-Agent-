@@ -20,7 +20,7 @@ approval gate** — it never auto-clears or auto-reports.
 📐 [Architecture](docs/ARCHITECTURE.md) · 🧭 [ADRs](docs/adr/) · 📝 [Case study](docs/CASE_STUDY.md) · 🔌 [Postman collection](docs/ComplianceAgent.postman_collection.json) · 🗂️ [Model card](docs/MODEL_CARD.md) · [Data sheet](docs/DATA_SHEET.md)
 
 ### 🔗 Live demo
-- **App (Vercel):** https://complianceagent-drab.vercel.app
+- **App (Vercel):** https://complianceagent-live.vercel.app
 - **API (Render):** https://complianceagent-backend.onrender.com/api/health
 - _The API runs on Render's free tier and **sleeps after ~15 min idle**, so the first request after inactivity has a ~30–60s cold start — just give the first case a moment to load._
 
@@ -474,7 +474,7 @@ Real multi-user access control ([`app/auth.py`](backend/app/auth.py), [`app/mode
   cold-start delay (typically 30–60s) — expected for a portfolio demo.
 - **Frontend → Vercel** (Hobby). Set `VITE_API_URL` to the live backend URL and `VITE_API_KEY` to match
   the backend's `BACKEND_API_KEY`.
-- **Live demo:** https://complianceagent-drab.vercel.app (API: https://complianceagent-backend.onrender.com)
+- **Live demo:** https://complianceagent-live.vercel.app (API: https://complianceagent-backend.onrender.com)
   · **Walkthrough:** see [`docs/demo_video_link.md`](docs/demo_video_link.md).
 
 ---
