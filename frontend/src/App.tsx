@@ -9,8 +9,10 @@ import Dashboard from "./components/Dashboard";
 import ImportPanel from "./components/ImportPanel";
 import LoginScreen from "./components/LoginScreen";
 import MobileNav from "./components/MobileNav";
+import ResizableSplit from "./components/ResizableSplit";
 import TeamPanel from "./components/TeamPanel";
 import ThemeToggle from "./components/ThemeToggle";
+import { useMediaQuery } from "./hooks/useMediaQuery";
 import { useT } from "./lib/i18n";
 import { fetchHealth } from "./lib/api";
 import { navFor } from "./lib/nav";
@@ -21,6 +23,7 @@ export default function App() {
   const t = useT();
   const { user, token, demoMode, view, setView, selectedCaseId, selectCase } = useUi();
   const authed = !!token || demoMode;
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
 
   const health = useQuery({ queryKey: ["health"], queryFn: fetchHealth, retry: 1, enabled: authed });
   const online = health.isSuccess;
@@ -141,32 +144,32 @@ export default function App() {
         <main id="main" className="mx-auto w-full max-w-[1440px] flex-1 overflow-y-auto p-4 pb-24 sm:p-6 md:pb-6">
           <BillingPanel />
         </main>
+      ) : isDesktop ? (
+        // Desktop: draggable, resizable two-pane layout.
+        <main id="main" className="mx-auto w-full max-w-[1440px] flex-1 overflow-hidden p-4 sm:p-6">
+          <ResizableSplit
+            className="h-full"
+            left={<CaseList />}
+            right={<CaseDetail />}
+          />
+        </main>
       ) : (
-        <main
-          id="main"
-          className="mx-auto grid w-full max-w-[1440px] flex-1 grid-cols-1 gap-5 overflow-hidden p-4 pb-24 sm:p-6 md:pb-6 lg:grid-cols-[350px_1fr]"
-        >
-          {/* Case list — full-screen on mobile until a case is picked */}
-          <aside
-            className={cx(
-              "min-h-0 flex-col lg:flex",
-              selectedCaseId ? "hidden lg:flex" : "flex",
-            )}
-          >
+        // Mobile/tablet: master-detail stack (list, then full-screen detail).
+        <main id="main" className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col overflow-hidden p-4 pb-24">
+          <div className={cx("min-h-0 flex-col", selectedCaseId ? "hidden" : "flex")}>
             <CaseList />
-          </aside>
-          {/* Case detail — full-screen on mobile once a case is picked */}
-          <section className={cx("min-h-0", selectedCaseId ? "block" : "hidden lg:block")}>
+          </div>
+          <div className={cx("min-h-0 flex-1", selectedCaseId ? "block" : "hidden")}>
             {selectedCaseId && (
               <button
                 onClick={() => selectCase(null)}
-                className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-brand lg:hidden"
+                className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-brand"
               >
                 <ArrowLeft size={16} /> {t("action.back")}
               </button>
             )}
             <CaseDetail />
-          </section>
+          </div>
         </main>
       )}
 
