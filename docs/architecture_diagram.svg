@@ -1,121 +1,130 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 720" font-family="Inter, system-ui, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 780" font-family="Inter, system-ui, sans-serif">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#0b1020"/>
-      <stop offset="1" stop-color="#141a2e"/>
-    </linearGradient>
-    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#6d63f5"/>
-      <stop offset="1" stop-color="#8b7cff"/>
-    </linearGradient>
-    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#0891b2"/>
-      <stop offset="1" stop-color="#22d3ee"/>
-    </linearGradient>
-    <marker id="arrow" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
-      <path d="M0,0 L7,3 L0,6 Z" fill="#8b7cff"/>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#9AA0A6"/>
     </marker>
     <style>
-      .t{fill:#e7ecfa} .m{fill:#a8b2c7} .s{fill:#7682a0}
-      .box{fill:#161c2f;stroke:#2a3350;stroke-width:1.5;rx:14}
-      .agent{fill:#1a2140;stroke:#4a3fb0;stroke-width:1.5}
+      .t{fill:#14161A} .m{fill:#565B62} .s{fill:#8A9099}
       .lbl{font-weight:700;font-size:15px}
       .sub{font-size:11.5px}
-      .tag{font-size:11px;font-weight:600}
+      .card{fill:#FFFFFF;stroke:#E4E6E9;stroke-width:1.4}
+      .band{fill:#F1F5F3;stroke:#E4E6E9;stroke-width:1.4}
+      .agent{fill:#FFFFFF;stroke:#059669;stroke-width:1.4}
     </style>
   </defs>
 
-  <rect width="1180" height="720" fill="url(#bg)"/>
-  <text x="40" y="46" class="t" font-size="26" font-weight="800">ComplianceAgent — Architecture</text>
-  <text x="40" y="70" class="m" font-size="13">Multi-agent AML/KYC case-investigation copilot · evidence-cited drafts · human-in-the-loop governance</text>
+  <rect width="1200" height="780" fill="#F6F7F8"/>
+
+  <!-- Title -->
+  <text x="40" y="48" class="t" font-size="26" font-weight="800">ComplianceAgent — Architecture</text>
+  <text x="40" y="72" class="m" font-size="13">Multi-agent AML/KYC case-investigation copilot · evidence-cited drafts · human-in-the-loop governance · $0/month</text>
 
   <!-- Frontend -->
-  <rect x="40" y="100" width="300" height="120" rx="14" class="box"/>
-  <rect x="40" y="100" width="300" height="30" rx="14" fill="url(#brand)"/>
-  <text x="56" y="120" class="t lbl">React + TypeScript + Vite (Vercel)</text>
-  <text x="56" y="152" class="m sub">Case queue · live reasoning trace (SSE)</text>
-  <text x="56" y="172" class="m sub">Evidence citations · typology &amp; regulation</text>
-  <text x="56" y="192" class="m sub">Approval gate · audit-log viewer · light/dark</text>
+  <rect x="40" y="96" width="1120" height="70" rx="14" fill="#E6F4EF" stroke="#059669" stroke-width="1.4"/>
+  <text x="64" y="124" class="t lbl">Frontend — React + TypeScript + Tailwind (Vercel, installable PWA)</text>
+  <text x="64" y="147" class="m sub">Case queue · Dashboard · Import wizard · Team · Billing · ⌘K palette · i18n/RTL · resizable panes · light/dark</text>
 
-  <!-- API -->
-  <rect x="40" y="250" width="300" height="110" rx="14" class="box"/>
-  <rect x="40" y="250" width="300" height="30" rx="14" fill="url(#accent)"/>
-  <text x="56" y="270" class="t lbl">FastAPI backend (Docker · Render)</text>
-  <text x="56" y="302" class="m sub">X-API-Key auth · rate limiting · CORS</text>
-  <text x="56" y="322" class="m sub">SSE streaming · /cases · /review (approval)</text>
-  <text x="56" y="344" class="s tag">provider-agnostic LLM client → Gemini ▸ Groq ▸ offline</text>
+  <!-- Backend -->
+  <rect x="40" y="182" width="1120" height="66" rx="14" class="card"/>
+  <text x="64" y="209" class="t lbl">Backend — FastAPI (Render)</text>
+  <text x="64" y="231" class="m sub">AuthN / RBAC + JWT (2FA) · rate-limit · security headers  →  /api/auth · /api/cases · /api/ingest · /api/dashboard · /api/admin</text>
 
-  <line x1="190" y1="220" x2="190" y2="250" stroke="#8b7cff" stroke-width="2" marker-end="url(#arrow)"/>
-
-  <!-- Orchestrator -->
-  <rect x="390" y="100" width="500" height="470" rx="16" fill="#10152a" stroke="#2a3350" stroke-width="1.5"/>
-  <text x="410" y="130" class="t lbl" font-size="16">LangGraph Orchestrator — state machine</text>
-  <text x="410" y="150" class="s sub">explicit conditional edges · retry path on verification failure</text>
-
-  <!-- agents -->
+  <!-- Agents pipeline -->
+  <text x="40" y="290" class="t lbl">Multi-agent pipeline — deterministic LangGraph state machine</text>
   <g>
-    <rect x="410" y="170" width="460" height="52" rx="12" class="agent"/>
-    <circle cx="440" cy="196" r="14" fill="url(#brand)"/>
-    <text x="466" y="192" class="t lbl">1 · Evidence Agent</text>
-    <text x="466" y="210" class="m sub">DuckDB: case network, KYC profile, prior history → facts/signals</text>
+    <rect x="40"   y="304" width="132" height="52" rx="10" class="agent"/>
+    <rect x="184"  y="304" width="132" height="52" rx="10" class="agent"/>
+    <rect x="328"  y="304" width="132" height="52" rx="10" class="agent"/>
+    <rect x="472"  y="304" width="132" height="52" rx="10" class="agent"/>
+    <rect x="616"  y="304" width="132" height="52" rx="10" class="agent"/>
+    <rect x="760"  y="304" width="132" height="52" rx="10" class="agent"/>
+    <rect x="904"  y="304" width="132" height="52" rx="10" class="agent"/>
+    <rect x="1048" y="304" width="112" height="52" rx="10" class="agent"/>
+  </g>
+  <g class="t" font-size="12" font-weight="600" text-anchor="middle">
+    <text x="106"  y="335">Evidence</text>
+    <text x="250"  y="335">Sanctions</text>
+    <text x="394"  y="335">GNN detect</text>
+    <text x="538"  y="335">Typology</text>
+    <text x="682"  y="335">RAG context</text>
+    <text x="826"  y="335">Narrative</text>
+    <text x="970"  y="335">Verifier</text>
+    <text x="1104" y="331">Finalize +</text>
+    <text x="1104" y="346">risk</text>
+  </g>
+  <g stroke="#059669" stroke-width="1.6" marker-end="url(#arrow)">
+    <line x1="172" y1="330" x2="182" y2="330"/>
+    <line x1="316" y1="330" x2="326" y2="330"/>
+    <line x1="460" y1="330" x2="470" y2="330"/>
+    <line x1="604" y1="330" x2="614" y2="330"/>
+    <line x1="748" y1="330" x2="758" y2="330"/>
+    <line x1="892" y1="330" x2="902" y2="330"/>
+    <line x1="1036" y1="330" x2="1046" y2="330"/>
+  </g>
+  <!-- verifier retry -->
+  <path d="M970,356 C900,392 895,392 826,358" fill="none" stroke="#D97706" stroke-width="1.3" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+  <text x="898" y="392" class="s" font-size="10.5" text-anchor="middle" fill="#B45309">bounded retry</text>
 
-    <rect x="410" y="232" width="460" height="52" rx="12" class="agent"/>
-    <circle cx="440" cy="258" r="14" fill="url(#brand)"/>
-    <text x="466" y="254" class="t lbl">2 · Typology-Match Agent</text>
-    <text x="466" y="272" class="m sub">deterministic cosine vs 28 SAML-D typologies → ranked + confidence</text>
+  <!-- Data & ML -->
+  <text x="40" y="430" class="t lbl">Data &amp; ML</text>
+  <g>
+    <rect x="40"   y="444" width="212" height="70" rx="10" class="band"/>
+    <rect x="268"  y="444" width="230" height="70" rx="10" class="band"/>
+    <rect x="514"  y="444" width="196" height="70" rx="10" class="band"/>
+    <rect x="726"  y="444" width="224" height="70" rx="10" class="band"/>
+    <rect x="966"  y="444" width="194" height="70" rx="10" class="band"/>
+  </g>
+  <g class="t" font-size="12.5" text-anchor="middle">
+    <text x="146" y="472" font-weight="700">DuckDB</text>
+    <text x="146" y="491" class="m sub">transactions / KYC / cases</text>
 
-    <rect x="410" y="294" width="460" height="52" rx="12" class="agent"/>
-    <circle cx="440" cy="320" r="14" fill="url(#brand)"/>
-    <text x="466" y="316" class="t lbl">3 · Regulatory-Context Agent</text>
-    <text x="466" y="334" class="m sub">ChromaDB RAG (local offline embeddings) over typology reference</text>
+    <text x="383" y="472" font-weight="700">SQLAlchemy store</text>
+    <text x="383" y="490" class="m sub">tenants · users · reviews</text>
+    <text x="383" y="505" class="m sub">audit · uploads (PG / SQLite)</text>
 
-    <rect x="410" y="356" width="460" height="52" rx="12" class="agent"/>
-    <circle cx="440" cy="382" r="14" fill="url(#brand)"/>
-    <text x="466" y="378" class="t lbl">4 · Narrative Agent</text>
-    <text x="466" y="396" class="m sub">deterministic draft + LLM polish → EDD report with citations</text>
+    <text x="612" y="472" font-weight="700">Regulatory KB</text>
+    <text x="612" y="491" class="m sub">hybrid BM25 + n-gram RAG</text>
 
-    <rect x="410" y="418" width="460" height="52" rx="12" fill="#1a2140" stroke="#b0483f" stroke-width="1.6"/>
-    <circle cx="440" cy="444" r="14" fill="#dc2626"/>
-    <text x="466" y="440" class="t lbl">5 · Verifier (guardrail)</text>
-    <text x="466" y="458" class="m sub">every claim/figure/citation re-checked vs evidence → retry if unsupported</text>
+    <text x="838" y="472" font-weight="700">From-scratch GNN</text>
+    <text x="838" y="491" class="m sub">NumPy GraphSAGE, calibrated</text>
 
-    <rect x="410" y="482" width="460" height="46" rx="12" fill="#14213a" stroke="#2a3350"/>
-    <text x="430" y="510" class="t lbl">6 · Finalize → awaiting human approval</text>
+    <text x="1063" y="472" font-weight="700">Live sanctions</text>
+    <text x="1063" y="490" class="m sub">OFAC + UN · 8k entities</text>
+    <text x="1063" y="505" class="m sub">blocking index</text>
   </g>
 
-  <!-- retry arrow -->
-  <path d="M876 444 C 910 444, 910 382, 876 382" fill="none" stroke="#f59e0b" stroke-width="2" marker-end="url(#arrow)"/>
-  <text x="898" y="416" class="tag" fill="#f59e0b" transform="rotate(90 898 416)">retry</text>
+  <!-- LLM + governance -->
+  <text x="40" y="556" class="t lbl">LLM (provider-agnostic, graceful degradation)</text>
+  <g>
+    <rect x="40"  y="570" width="120" height="46" rx="23" fill="#E6F4EF" stroke="#059669" stroke-width="1.4"/>
+    <rect x="176" y="570" width="120" height="46" rx="23" fill="#E6F4EF" stroke="#059669" stroke-width="1.4"/>
+    <rect x="312" y="570" width="210" height="46" rx="23" fill="#E6F4EF" stroke="#059669" stroke-width="1.4"/>
+  </g>
+  <g fill="#065F46" font-size="12.5" font-weight="700" text-anchor="middle">
+    <text x="100" y="598">Gemini</text>
+    <text x="236" y="598">Groq</text>
+    <text x="417" y="598">Deterministic offline</text>
+  </g>
+  <g stroke="#9AA0A6" stroke-width="1.3" stroke-dasharray="3,3" marker-end="url(#arrow)">
+    <line x1="160" y1="593" x2="174" y2="593"/>
+    <line x1="296" y1="593" x2="310" y2="593"/>
+  </g>
 
-  <line x1="340" y1="305" x2="390" y2="305" stroke="#8b7cff" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="560" y="570" width="292" height="46" rx="10" fill="#FEF3E6" stroke="#D97706" stroke-width="1.4"/>
+  <text x="706" y="598" text-anchor="middle" font-size="13" font-weight="700" fill="#92400E">Human approval gate — enforced in code</text>
 
-  <!-- Data stores -->
-  <rect x="940" y="170" width="200" height="70" rx="12" class="box"/>
-  <text x="958" y="198" class="t lbl">DuckDB</text>
-  <text x="958" y="220" class="m sub">transactions · KYC · cases</text>
+  <rect x="880" y="570" width="280" height="46" rx="10" fill="#E6F4EF" stroke="#059669" stroke-width="1.4"/>
+  <text x="1020" y="598" text-anchor="middle" font-size="13" font-weight="700" fill="#065F46">SAR / STR + goAML XML export</text>
 
-  <rect x="940" y="256" width="200" height="70" rx="12" class="box"/>
-  <text x="958" y="284" class="t lbl">ChromaDB</text>
-  <text x="958" y="306" class="m sub">typology knowledge base</text>
+  <!-- Cross-cutting -->
+  <rect x="40" y="646" width="1120" height="96" rx="14" class="card"/>
+  <text x="64" y="674" class="t lbl">Cross-cutting</text>
+  <text x="64" y="699" class="m sub">Prometheus /metrics + Grafana  ·  Eval gates: red-team (11 attacks) · fairness audit · LLM-judge CI gate</text>
+  <text x="64" y="720" class="m sub">85+ unit tests (76% coverage) · 12 Playwright E2E (desktop + mobile) · Locust load testing  ·  provider-agnostic, $0/month by default</text>
 
-  <rect x="940" y="342" width="200" height="70" rx="12" class="box"/>
-  <text x="958" y="370" class="t lbl">SQLite audit log</text>
-  <text x="958" y="392" class="m sub">every step + human action</text>
-
-  <line x1="870" y1="196" x2="940" y2="200" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <line x1="870" y1="320" x2="940" y2="290" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <line x1="870" y1="450" x2="940" y2="392" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrow)"/>
-
-  <!-- Human gate -->
-  <rect x="390" y="600" width="500" height="90" rx="16" fill="#141b12" stroke="#3f7040" stroke-width="2"/>
-  <circle cx="430" cy="645" r="18" fill="url(#brand)"/>
-  <text x="462" y="636" class="t lbl" font-size="16">Human Approval Gate (mandatory, enforced)</text>
-  <text x="462" y="658" class="m sub">Analyst reviews draft + evidence + reasoning trace</text>
-  <text x="462" y="678" class="s tag">Approve · Edit · Escalate · Reject — nothing auto-clears or auto-files</text>
-
-  <line x1="640" y1="570" x2="640" y2="600" stroke="#8b7cff" stroke-width="2" marker-end="url(#arrow)"/>
-  <line x1="390" y1="645" x2="340" y2="645" stroke="#8b7cff" stroke-width="2" marker-end="url(#arrow)"/>
-  <text x="1000" y="640" class="s" font-size="11">$0/month · free-tier</text>
-  <text x="1000" y="658" class="s" font-size="11">Gemini + Groq +</text>
-  <text x="1000" y="674" class="s" font-size="11">deterministic offline</text>
+  <!-- vertical flow connectors -->
+  <g stroke="#C7CBD1" stroke-width="1.4" marker-end="url(#arrow)">
+    <line x1="600" y1="166" x2="600" y2="180"/>
+    <line x1="600" y1="248" x2="600" y2="300"/>
+  </g>
 </svg>
