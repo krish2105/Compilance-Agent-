@@ -4,49 +4,67 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ------------------------------------------------------------------ themes -- */
+/* ============================================================ tokens ==== */
+/* Graphite + Emerald design system.
+   - ONE accent (emerald). Status colours are distinct + used only as
+     dots / thin borders / text — never as filled surfaces.
+   - Depth comes from hairline borders + one soft shadow scale, not glow.
+   - Themes flip a single `.dark` class on <html>; both are first-class. */
+
 :root {
-  /* Light theme (default) — clean, high-contrast, professional. */
-  --surface-base: 244 246 251;    /* app background      */
-  --surface-raised: 255 255 255;  /* cards               */
-  --surface-overlay: 255 255 255; /* popovers/modals     */
-  --ink: 17 24 39;                /* primary text        */
-  --ink-muted: 71 85 105;         /* secondary text      */
-  --ink-faint: 130 143 163;       /* tertiary text       */
-  --line: 224 229 240;            /* borders             */
-  --brand: 79 70 229;             /* indigo-600          */
-  --brand-soft: 224 226 254;      /* indigo tint         */
-  --accent: 8 145 178;            /* cyan-600            */
-  --critical: 220 38 38;          /* rose-600            */
-  --high: 217 119 6;              /* amber-600           */
-  --medium: 2 132 199;            /* sky-600             */
-  --low: 5 150 105;               /* emerald-600         */
-  --ok: 5 150 105;
-  --warn: 217 119 6;
-  --danger: 220 38 38;
-  --shadow: 30 41 59;
+  /* Light — cool graphite on near-white. */
+  --surface-base: 246 247 248;    /* app background   */
+  --surface-raised: 255 255 255;  /* cards            */
+  --surface-overlay: 255 255 255; /* popovers/modals  */
+  --ink: 20 22 26;                /* primary text     */
+  --ink-muted: 86 91 98;          /* secondary text   */
+  --ink-faint: 138 144 153;       /* tertiary text    */
+  --line: 228 230 233;            /* hairline borders */
+
+  --brand: 5 150 105;             /* emerald-600 — the one accent */
+  --brand-soft: 230 244 239;      /* faint emerald tint */
+  --accent: 5 150 105;            /* alias of brand (kept for compat) */
+
+  /* Semantic status — distinct from the accent. */
+  --positive: 22 163 74;          /* success green (grassy, ≠ emerald) */
+  --warn: 217 119 6;              /* amber */
+  --danger: 225 29 72;            /* rose  */
+  --ok: 22 163 74;                /* = positive */
+
+  /* Risk ramp — only escalating risk gets warm colour. */
+  --critical: 225 29 72;          /* red    */
+  --high: 217 119 6;              /* amber  */
+  --medium: 113 113 122;          /* neutral zinc */
+  --low: 22 163 74;              /* success green */
+
+  --shadow: 15 23 42;
   color-scheme: light;
 }
 
 :root.dark {
-  /* Dark theme — deep slate/navy with vivid, accessible accents. */
-  --surface-base: 8 11 22;
-  --surface-raised: 17 22 38;
-  --surface-overlay: 22 28 47;
-  --ink: 237 241 250;
-  --ink-muted: 168 178 199;
-  --ink-faint: 118 130 155;
-  --line: 38 46 71;
-  --brand: 129 122 255;
-  --brand-soft: 40 40 84;
-  --accent: 34 211 238;
-  --critical: 251 113 133;
-  --high: 251 191 36;
-  --medium: 56 189 248;
-  --low: 52 211 153;
-  --ok: 52 211 153;
-  --warn: 251 191 36;
-  --danger: 251 113 133;
+  /* Dark — flat graphite. */
+  --surface-base: 11 12 14;
+  --surface-raised: 20 21 24;
+  --surface-overlay: 27 29 33;
+  --ink: 236 238 240;
+  --ink-muted: 155 161 168;
+  --ink-faint: 107 113 120;
+  --line: 38 40 46;
+
+  --brand: 16 185 129;            /* emerald-500 */
+  --brand-soft: 14 42 34;         /* deep emerald tint */
+  --accent: 16 185 129;
+
+  --positive: 34 197 94;          /* success green */
+  --warn: 245 158 11;
+  --danger: 244 63 94;
+  --ok: 34 197 94;
+
+  --critical: 244 63 94;
+  --high: 245 158 11;
+  --medium: 161 161 170;
+  --low: 34 197 94;
+
   --shadow: 0 0 0;
   color-scheme: dark;
 }
@@ -63,61 +81,74 @@ body,
 
 body {
   @apply bg-surface-base text-ink font-sans antialiased;
-  background-image:
-    radial-gradient(1000px 600px at 100% -10%, rgb(var(--brand) / 0.10), transparent 55%),
-    radial-gradient(900px 500px at -10% 10%, rgb(var(--accent) / 0.08), transparent 55%);
+  /* Flat — a single, barely-there accent wash at the very top only. */
+  background-image: radial-gradient(1200px 500px at 50% -20%, rgb(var(--brand) / 0.05), transparent 60%);
   background-attachment: fixed;
-  transition: background-color 0.4s ease, color 0.3s ease;
+  transition: background-color 0.35s ease, color 0.25s ease;
 }
 
-/* ------------------------------------------------------------- components -- */
+/* ======================================================== components ==== */
 @layer components {
+  /* Flat card — the default surface. Depth = border + soft shadow. */
+  .card {
+    @apply rounded-xl border border-line bg-surface-raised shadow-soft;
+  }
+  /* `.glass` now means "flat card" so every legacy usage de-bulks at once. */
   .glass {
-    @apply rounded-2xl border border-line/70 bg-surface-raised/70 backdrop-blur-xl shadow-float;
+    @apply card;
   }
   .glass-soft {
-    @apply rounded-xl border border-line/60 bg-surface-raised/55 backdrop-blur-lg;
+    @apply rounded-lg border border-line bg-surface-raised;
   }
+  /* True translucency retained ONLY for floating overlays (palette, modals). */
+  .glass-overlay {
+    @apply rounded-2xl border border-line/80 bg-surface-overlay/85 backdrop-blur-xl shadow-lift;
+  }
+
   .chip {
-    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold;
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium;
   }
+
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold
-           transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/60
-           disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98];
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold
+           transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/50
+           focus-visible:ring-offset-1 focus-visible:ring-offset-surface-base
+           disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.985];
   }
   .btn-brand {
-    @apply btn bg-brand text-white shadow-glow hover:brightness-110;
+    @apply btn bg-brand text-white hover:brightness-105 shadow-soft;
   }
   .btn-ghost {
-    @apply btn border border-line bg-surface-raised/60 text-ink hover:bg-surface-overlay;
+    @apply btn border border-line bg-surface-raised text-ink hover:bg-surface-overlay;
   }
   .btn-ok {
-    @apply btn text-white hover:brightness-110;
-    background-color: rgb(var(--ok));
+    @apply btn text-white hover:brightness-105;
+    background-color: rgb(var(--positive));
   }
   .btn-danger {
-    @apply btn text-white hover:brightness-110;
+    @apply btn text-white hover:brightness-105;
     background-color: rgb(var(--danger));
   }
+
   .label {
-    @apply text-[11px] font-semibold uppercase tracking-wider text-ink-faint;
+    @apply text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-faint;
   }
   .card-hover {
-    @apply transition-all duration-300 hover:-translate-y-0.5 hover:shadow-glow;
+    @apply transition-all duration-200 hover:border-line hover:shadow-lift;
   }
 }
 
-/* scrollbars */
+/* scrollbars — slim, neutral */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
 }
 ::-webkit-scrollbar-thumb {
-  @apply rounded-full bg-line;
+  @apply rounded-full;
+  background-color: rgb(var(--ink-faint) / 0.3);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background-color: rgb(var(--ink-faint));
+  background-color: rgb(var(--ink-faint) / 0.55);
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -133,6 +164,16 @@ body {
 .markdown li { @apply leading-relaxed; }
 .markdown strong { @apply text-ink font-semibold; }
 .markdown code { @apply font-mono text-[12px] px-1.5 py-0.5 rounded-md bg-brand-soft text-brand; }
-.markdown blockquote { @apply border-l-4 border-warn/70 bg-warn/10 rounded-r-lg px-3 py-2 text-xs my-3 text-ink-muted; }
+.markdown blockquote { @apply border-l-2 border-warn/60 bg-warn/5 rounded-r-lg px-3 py-2 text-xs my-3 text-ink-muted; }
 .markdown hr { @apply my-4 border-line; }
 .markdown table { @apply w-full text-xs my-3; }
+
+/* Respect reduced motion globally as a safety net. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

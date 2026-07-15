@@ -30,6 +30,7 @@ export default {
           soft: "rgb(var(--brand-soft) / <alpha-value>)",
         },
         accent: "rgb(var(--accent) / <alpha-value>)",
+        positive: "rgb(var(--positive) / <alpha-value>)",
         priority: {
           critical: "rgb(var(--critical) / <alpha-value>)",
           high: "rgb(var(--high) / <alpha-value>)",
@@ -45,12 +46,17 @@ export default {
         mono: ["JetBrains Mono", "SFMono-Regular", "Menlo", "monospace"],
       },
       borderRadius: {
-        xl: "1rem",
-        "2xl": "1.5rem",
+        lg: "0.5rem",
+        xl: "0.75rem",
+        "2xl": "1rem",
       },
       boxShadow: {
-        float: "0 10px 40px -12px rgb(var(--shadow) / 0.45)",
-        glow: "0 0 0 1px rgb(var(--brand) / 0.35), 0 12px 40px -8px rgb(var(--brand) / 0.35)",
+        /* One soft, neutral depth scale — no brand glow. Legacy names
+           (float/glow) are aliased to soft values so old usages de-glow. */
+        soft: "0 1px 2px rgb(var(--shadow) / 0.06), 0 2px 8px -2px rgb(var(--shadow) / 0.10)",
+        lift: "0 8px 28px -10px rgb(var(--shadow) / 0.28)",
+        float: "0 8px 28px -12px rgb(var(--shadow) / 0.30)",
+        glow: "0 1px 2px rgb(var(--shadow) / 0.10)",
       },
       backgroundImage: {
         "grid-fade":
