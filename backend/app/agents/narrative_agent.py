@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
+from app.config import settings
 from app.llm.llm_client import LLMClient, llm_client
 from app.tools import guardrails
 
@@ -258,9 +259,14 @@ def draft_narrative(
         "Return only the narrative in Markdown.\n\n"
         f"---\n{deterministic}\n---"
     )
+    # Constrained decoding: the narrator only polishes a grounded draft, so decode
+    # near-deterministically (low temperature + nucleus cap + repetition penalty +
+    # fixed seed) to minimise variance and any room for invention.
     response = client.generate(
         prompt, fallback_text=deterministic, system=SYSTEM_PROMPT,
-        temperature=0.2, max_tokens=1800,
+        temperature=settings.llm_temperature, max_tokens=1800,
+        top_p=settings.llm_top_p, frequency_penalty=settings.llm_frequency_penalty,
+        seed=settings.llm_seed,
     )
 
     # Guardrail: scan the model output for leaked PII (OWASP LLM02/LLM06) and redact.

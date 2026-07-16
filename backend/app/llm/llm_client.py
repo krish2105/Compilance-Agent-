@@ -82,15 +82,23 @@ class LLMClient:
         max_tokens: int = 1200,
         task: str = "narrative",
         name: str = "llm",
+        top_p: Optional[float] = None,
+        frequency_penalty: Optional[float] = None,
+        seed: Optional[int] = None,
     ) -> LLMResponse:
         """Generate text from the configured provider with automatic failover.
 
         `task` selects the model tier via the router ("narrative" → primary model,
         "classify"/light → cheaper model). Token usage, cost, and latency are
-        recorded to the active run's metrics/trace.
+        recorded to the active run's metrics/trace. `top_p`/`frequency_penalty`/
+        `seed` constrain decoding to reduce variance (defaults from settings).
         """
         chain = self._provider_chain()
         last_error: Optional[str] = None
+        top_p = settings.llm_top_p if top_p is None else top_p
+        frequency_penalty = (settings.llm_frequency_penalty
+                             if frequency_penalty is None else frequency_penalty)
+        seed = settings.llm_seed if seed is None else seed
 
         for prov in chain:
             t0 = time.perf_counter()
@@ -103,10 +111,11 @@ class LLMClient:
                 model = self._model_for(prov, task)
                 if prov == "gemini":
                     text, in_tok, out_tok = self._generate_gemini(
-                        prompt, system, temperature, max_tokens, model)
+                        prompt, system, temperature, max_tokens, model, top_p)
                 elif prov == "groq":
                     text, in_tok, out_tok = self._generate_groq(
-                        prompt, system, temperature, max_tokens, model)
+                        prompt, system, temperature, max_tokens, model,
+                        top_p, frequency_penalty, seed)
                 else:  # pragma: no cover
                     continue
                 return self._finish(name, prov, model, prompt, text, t0, task,
@@ -181,7 +190,7 @@ class LLMClient:
         return chain
 
     def _generate_gemini(
-        self, prompt, system, temperature, max_tokens, model
+        self, prompt, system, temperature, max_tokens, model, top_p=None
     ) -> Tuple[str, Optional[int], Optional[int]]:
         if not settings.gemini_api_key:
             raise LLMProviderError("GEMINI_API_KEY not configured")
@@ -203,11 +212,10 @@ class LLMClient:
             tried.append(m)
             try:
                 gm = genai.GenerativeModel(m, system_instruction=system or None)
-                resp = gm.generate_content(
-                    prompt,
-                    generation_config={"temperature": temperature,
-                                       "max_output_tokens": max_tokens},
-                )
+                gen_cfg = {"temperature": temperature, "max_output_tokens": max_tokens}
+                if top_p is not None:
+                    gen_cfg["top_p"] = top_p
+                resp = gm.generate_content(prompt, generation_config=gen_cfg)
                 text = (getattr(resp, "text", None) or "").strip()
                 if not text:
                     raise LLMProviderError("empty response")
@@ -223,7 +231,8 @@ class LLMClient:
         raise LLMProviderError("all Gemini models failed → " + " | ".join(errors))
 
     def _generate_groq(
-        self, prompt, system, temperature, max_tokens, model
+        self, prompt, system, temperature, max_tokens, model,
+        top_p=None, frequency_penalty=None, seed=None
     ) -> Tuple[str, Optional[int], Optional[int]]:
         if not settings.groq_api_key:
             raise LLMProviderError("GROQ_API_KEY not configured")
@@ -237,10 +246,15 @@ class LLMClient:
             if system:
                 messages.append({"role": "system", "content": system})
             messages.append({"role": "user", "content": prompt})
-            resp = client.chat.completions.create(
-                model=model, messages=messages,
-                temperature=temperature, max_tokens=max_tokens,
-            )
+            kwargs = {"model": model, "messages": messages,
+                      "temperature": temperature, "max_tokens": max_tokens}
+            if top_p is not None:
+                kwargs["top_p"] = top_p
+            if frequency_penalty is not None:
+                kwargs["frequency_penalty"] = frequency_penalty
+            if seed is not None:
+                kwargs["seed"] = seed
+            resp = client.chat.completions.create(**kwargs)
             text = (resp.choices[0].message.content or "").strip()
             if not text:
                 raise LLMProviderError("empty response from Groq")

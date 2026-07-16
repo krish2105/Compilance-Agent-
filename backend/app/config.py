@@ -95,6 +95,23 @@ class Settings(BaseSettings):
     # Cap HF calls per case (free-tier rate limits): number of statements checked.
     entailment_max_checks: int = Field(default=8, alias="ENTAILMENT_MAX_CHECKS")
 
+    # ---- Abstention (confidence-gated "escalate to human, insufficient evidence") ----
+    # When the system cannot confidently assess a case it must say so rather than
+    # present a fluent-but-shaky narrative. Below this typology confidence (and when
+    # it is not a hard sanctions escalation), or if the Verifier could not confirm the
+    # content even after a re-draft, the case is flagged for human escalation.
+    abstain_confidence: float = Field(default=0.30, alias="ABSTAIN_CONFIDENCE")
+    abstain_on_verifier_fail: bool = Field(default=True, alias="ABSTAIN_ON_VERIFIER_FAIL")
+
+    # ---- Constrained decoding (lower LLM variance → fewer hallucinations) ----
+    # The narrator only *polishes* an evidence-grounded draft, so we decode
+    # near-deterministically: low temperature, nucleus cap, a repetition penalty,
+    # and a fixed seed for reproducibility.
+    llm_temperature: float = Field(default=0.0, alias="LLM_TEMPERATURE")
+    llm_top_p: float = Field(default=0.9, alias="LLM_TOP_P")
+    llm_frequency_penalty: float = Field(default=0.3, alias="LLM_FREQUENCY_PENALTY")
+    llm_seed: int = Field(default=42, alias="LLM_SEED")
+
     # ---- Observability (Langfuse — optional; tracing is a no-op if unset) ----
     langfuse_public_key: Optional[str] = Field(default=None, alias="LANGFUSE_PUBLIC_KEY")
     langfuse_secret_key: Optional[str] = Field(default=None, alias="LANGFUSE_SECRET_KEY")
