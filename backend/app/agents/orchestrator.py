@@ -36,7 +36,7 @@ from app.agents import (
     typology_match_agent,
     verifier,
 )
-from app.tools import audit, metrics, tracing
+from app.tools import abstention, audit, metrics, tracing
 
 MAX_RETRIES = 1
 
@@ -433,9 +433,22 @@ def assemble_result(case_id: str, state: AgentState) -> Dict[str, Any]:
         return {"case_id": case_id, "error": state["error"], "status": "ERROR"}
     gnn = state.get("gnn", {"available": False})
     screening = state.get("screening", {"cleared": True, "screening_risk": 0.0})
+    risk = _ensemble_risk(state["typology_match"], gnn, screening)
+
+    # Abstention: if the system cannot confidently assess the case, say so and
+    # recommend escalation rather than presenting the narrative as a reliable AI
+    # assessment. The evidence draft is preserved (with a prominent notice).
+    abst = abstention.assess(state["verification"], state["typology_match"], risk)
+    narrative_text = state["narrative_result"]["narrative"]
+    if abst["abstained"]:
+        narrative_text = abstention.banner(abst["reasons"]) + narrative_text
+        audit.log_event(case_id, "Orchestrator", "ABSTAINED", actor_type="system",
+                        summary="Insufficient confidence — recommended human escalation.",
+                        detail={"reasons": abst["reasons"]})
+
     _result = {
         "case_id": case_id,
-        "status": "AWAITING_HUMAN_REVIEW",
+        "status": "ESCALATE_INSUFFICIENT_EVIDENCE" if abst["abstained"] else "AWAITING_HUMAN_REVIEW",
         "evidence": {
             "summary": state["evidence"]["evidence_summary"],
             "facts": state["evidence"]["facts"],
@@ -447,10 +460,11 @@ def assemble_result(case_id: str, state: AgentState) -> Dict[str, Any]:
         },
         "screening": screening,
         "gnn": gnn,
-        "risk": (risk := _ensemble_risk(state["typology_match"], gnn, screening)),
+        "risk": risk,
+        "abstention": abst,
         "typology_match": state["typology_match"],
         "regulatory": state["regulatory"],
-        "narrative": state["narrative_result"]["narrative"],
+        "narrative": narrative_text,
         "claims": state["narrative_result"]["claims"],
         "citations": state["narrative_result"]["citations"],
         "llm_provider": state["narrative_result"]["llm_provider"],

@@ -7,26 +7,26 @@
     "claim_accuracy": 1.0,
     "citation_validity": 1.0,
     "figure_validity": 1.0,
-    "nli_faithfulness": 0.7818,
+    "nli_faithfulness": 0.761,
     "unsupported_claim_rate": 0.0,
     "clean_case_rate": 1.0
   },
   "per_case": [
     {
       "case_id": "CASE-0029",
-      "provider": "offline",
-      "fallback_used": true,
+      "provider": "groq",
+      "fallback_used": false,
       "claim_accuracy": 1.0,
       "citation_validity": 1.0,
       "figure_validity": 1.0,
-      "nli_faithfulness": 0.8751,
+      "nli_faithfulness": 0.7713,
       "nli_available": true,
-      "nli_checked": 6,
+      "nli_checked": 8,
       "unsupported_items": 0,
       "checkable_items": 6,
       "unsupported_claim_rate": 0.0,
       "clean": true,
-      "fell_back_to_deterministic": true,
+      "fell_back_to_deterministic": false,
       "issues": []
     },
     {
