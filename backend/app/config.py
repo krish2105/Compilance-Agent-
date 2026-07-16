@@ -103,6 +103,12 @@ class Settings(BaseSettings):
     abstain_confidence: float = Field(default=0.30, alias="ABSTAIN_CONFIDENCE")
     abstain_on_verifier_fail: bool = Field(default=True, alias="ABSTAIN_ON_VERIFIER_FAIL")
 
+    # ---- Entity enrichment (GLEIF LEI lookup — real, free, no key) ----
+    # Best-effort legal-entity verification for organisation counterparties. Off by
+    # default so the demo stays fast on synthetic names; a real deployment enables it.
+    entity_enrichment: bool = Field(default=False, alias="ENTITY_ENRICHMENT")
+    gleif_timeout: float = Field(default=8.0, alias="GLEIF_TIMEOUT")
+
     # ---- Constrained decoding (lower LLM variance → fewer hallucinations) ----
     # The narrator only *polishes* an evidence-grounded draft, so we decode
     # near-deterministically: low temperature, nucleus cap, a repetition penalty,
