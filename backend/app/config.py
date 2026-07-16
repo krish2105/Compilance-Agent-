@@ -79,6 +79,22 @@ class Settings(BaseSettings):
     groq_model: str = Field(default="llama-3.3-70b-versatile", alias="GROQ_MODEL")
     groq_model_light: str = Field(default="llama-3.1-8b-instant", alias="GROQ_MODEL_LIGHT")
 
+    # ---- Hallucination guardrail (Verifier NLI entailment via HF Inference API) ----
+    # A free-tier HuggingFace token enables an independent natural-language-inference
+    # check: every substantive narrative statement must be *entailed* by the evidence.
+    # Absent a token (e.g. CI), the check no-ops and the deterministic guardrails stand.
+    huggingface_token: Optional[str] = Field(default=None, alias="HUGGINGFACE_TOKEN")
+    verifier_entailment: bool = Field(default=True, alias="VERIFIER_ENTAILMENT")
+    hf_nli_model: str = Field(
+        default="MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli", alias="HF_NLI_MODEL")
+    # Entailment probability below this = "not supported by evidence".
+    entailment_threshold: float = Field(default=0.5, alias="ENTAILMENT_THRESHOLD")
+    # HF serverless cold-starts can take 20-30s on first use; we send X-Wait-For-Model
+    # so the API blocks until the model is loaded rather than erroring.
+    entailment_timeout: float = Field(default=45.0, alias="ENTAILMENT_TIMEOUT")
+    # Cap HF calls per case (free-tier rate limits): number of statements checked.
+    entailment_max_checks: int = Field(default=8, alias="ENTAILMENT_MAX_CHECKS")
+
     # ---- Observability (Langfuse — optional; tracing is a no-op if unset) ----
     langfuse_public_key: Optional[str] = Field(default=None, alias="LANGFUSE_PUBLIC_KEY")
     langfuse_secret_key: Optional[str] = Field(default=None, alias="LANGFUSE_SECRET_KEY")

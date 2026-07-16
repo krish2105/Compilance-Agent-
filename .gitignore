@@ -50,3 +50,7 @@ frontend/test-results/
 backend/.coverage
 backend/coverage.xml
 backend/htmlcov/
+
+# Kaggle API credentials — never commit
+kaggle.json
+**/kaggle.json

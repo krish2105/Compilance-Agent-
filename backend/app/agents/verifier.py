@@ -19,16 +19,26 @@ the orchestrator re-runs the narrative step in deterministic (evidence-only) mod
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
+
+from app.tools import entailment
 
 _TXN_RE = re.compile(r"TXN\d{7}")
 _MONEY_RE = re.compile(r"\b(AED|USD|EUR|GBP|INR)\s*([\d,]+(?:\.\d+)?)")
 _FLOAT_TOL = 0.5      # absolute tolerance for money comparison
 _REL_TOL = 0.01       # 1% relative tolerance
+_SENT_RE = re.compile(r"(?<=[.!?])\s+")
+_MD_RE = re.compile(r"[*_`#>|\-]+")
 
 
-def _num(x) -> float:
-    return float(str(x).replace(",", ""))
+def _num(x) -> Optional[float]:
+    """Parse a numeric token; return None on anything unparseable (robust to the
+    stray tokens a real LLM's prose can emit, e.g. a lone comma)."""
+    try:
+        s = str(x).replace(",", "").strip()
+        return float(s) if s not in ("", ".", "-", "-.") else None
+    except (ValueError, TypeError):
+        return None
 
 
 def _approx_in(value: float, allowed: List[float]) -> bool:
@@ -36,6 +46,34 @@ def _approx_in(value: float, allowed: List[float]) -> bool:
         if abs(value - a) <= _FLOAT_TOL or (a != 0 and abs(value - a) / abs(a) <= _REL_TOL):
             return True
     return False
+
+
+def _factual_sentences(text: str) -> List[str]:
+    """Prose sentences that assert something checkable (contain a number)."""
+    plain = _MD_RE.sub(" ", text)
+    out: List[str] = []
+    for line in plain.split("\n"):
+        for sent in _SENT_RE.split(line):
+            s = sent.strip()
+            if 25 <= len(s) <= 320 and re.search(r"\d", s):
+                out.append(s)
+    return out
+
+
+def _llm_added_statements(narrative_result: Dict[str, Any]) -> List[str]:
+    """Factual sentences the LLM introduced beyond the deterministic draft.
+
+    These are the genuine hallucination surface: prose the model wrote that isn't
+    verbatim in the evidence-only draft. Checked by NLI against the evidence.
+    """
+    text = narrative_result.get("narrative", "")
+    draft = narrative_result.get("deterministic_draft", "") or ""
+    draft_norm = re.sub(r"\s+", " ", _MD_RE.sub(" ", draft)).lower()
+    added = []
+    for s in _factual_sentences(text):
+        if re.sub(r"\s+", " ", s).lower() not in draft_norm:
+            added.append(s)
+    return added
 
 
 def verify_narrative(
@@ -54,10 +92,11 @@ def verify_narrative(
     for c in claims:
         actual = facts.get(c["fact_path"])
         expected = c["expected"]
+        na, ne = _num(actual), _num(expected)
         ok = (
             (isinstance(expected, bool) and actual == expected)
             or (isinstance(expected, (int, float)) and not isinstance(expected, bool)
-                and actual is not None and abs(_num(actual) - _num(expected)) <= _FLOAT_TOL)
+                and na is not None and ne is not None and abs(na - ne) <= _FLOAT_TOL)
             or (actual == expected)
         )
         verified_claims.append({
@@ -89,24 +128,23 @@ def verify_narrative(
     # itself are legitimate.
     allowed_amounts = [float(t["amount"]) for t in evidence["transactions"]]
     allowed_amounts += [
-        float(facts.get("total_amount", 0)),
-        float(facts.get("max_amount", 0)),
-        float(facts.get("expected_monthly_volume", 0)),
-        float(facts.get("reporting_threshold", 0)),
+        float(facts.get("total_amount") or 0),
+        float(facts.get("max_amount") or 0),
+        float(facts.get("expected_monthly_volume") or 0),
+        float(facts.get("reporting_threshold") or 0),
     ]
     _source_text = " ".join([
         str(evidence.get("case", {}).get("alert_summary", "")),
         str(evidence.get("subject_kyc", {}).get("source_of_funds", "")),
     ])
     for tok in re.findall(r"[\d,]+(?:\.\d+)?", _source_text):
-        try:
-            allowed_amounts.append(_num(tok))
-        except ValueError:
-            continue
+        n = _num(tok)
+        if n is not None:
+            allowed_amounts.append(n)
     unsupported_figures: List[str] = []
     for _cur, raw in _MONEY_RE.findall(text):
         val = _num(raw)
-        if val == 0:
+        if val is None or val == 0:
             continue
         if not _approx_in(val, allowed_amounts):
             unsupported_figures.append(f"{_cur} {raw}")
@@ -116,14 +154,39 @@ def verify_narrative(
             "detail": f"Figure {fig} in the narrative does not match any evidence amount.",
         })
 
-    # -- 4. typology sanity ------------------------------------------------
+    # -- 4. NLI entailment (faithfulness guardrail) ------------------------
+    # Independently check that every substantive statement is *entailed* by the
+    # evidence. Priority: statements the LLM introduced beyond the deterministic
+    # draft (the real hallucination surface), then the structured claim sentences.
+    # Only LLM-generated prose can *fail* here — the deterministic draft is ground
+    # truth, so NLI noise on it must never trigger a retry.
+    llm_generated = (
+        narrative_result.get("llm_provider") not in (None, "offline")
+        and not narrative_result.get("llm_fallback_used")
+    )
+    premise = entailment.build_premise(evidence)
+    statements = _llm_added_statements(narrative_result) + [c["statement"] for c in claims]
+    entail_block = entailment.score_statements(premise, statements)
+
+    unsupported_statements: List[str] = []
+    if entail_block["available"] and llm_generated:
+        added_set = set(_llm_added_statements(narrative_result))
+        for s in entail_block["unsupported"]:
+            if s in added_set:  # only flag/retry on LLM-introduced content
+                unsupported_statements.append(s)
+                issues.append({
+                    "type": "unsupported_statement", "reference": s[:160],
+                    "detail": f"Statement not entailed by evidence (NLI): “{s[:160]}”",
+                })
+
+    # -- 5. typology sanity ------------------------------------------------
     conf = typology_match.get("confidence", 0)
     low_confidence = conf < 0.35
 
     passed = len(issues) == 0
     # Retry only for issues a deterministic re-draft can fix (LLM hallucinations).
     hallucination_issues = [i for i in issues if i["type"] in
-                            ("fabricated_citation", "unsupported_figure")]
+                            ("fabricated_citation", "unsupported_figure", "unsupported_statement")]
     should_retry = bool(hallucination_issues)
 
     summary = (
@@ -132,6 +195,11 @@ def verify_narrative(
         f"({len(fabricated)} fabricated); "
         f"{len(set(unsupported_figures))} unsupported figures."
     )
+    if entail_block["available"]:
+        summary += (
+            f" NLI faithfulness {entail_block['faithfulness']:.0%} over "
+            f"{entail_block['checked']} statements ({len(unsupported_statements)} unsupported)."
+        )
     if low_confidence:
         summary += " NOTE: typology confidence is low — flag for careful human review."
 
@@ -143,6 +211,9 @@ def verify_narrative(
         "citations_checked": len(cited),
         "fabricated_citations": fabricated,
         "unsupported_figures": sorted(set(unsupported_figures)),
+        "unsupported_statements": unsupported_statements,
+        "entailment": entail_block,
+        "faithfulness": entail_block.get("faithfulness"),
         "low_confidence": low_confidence,
         "summary": summary,
     }
