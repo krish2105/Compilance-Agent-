@@ -54,3 +54,6 @@ backend/htmlcov/
 # Kaggle API credentials — never commit
 kaggle.json
 **/kaggle.json
+
+# Real training datasets (large; download via gnn/real_data.py, not committed)
+backend/data/real/

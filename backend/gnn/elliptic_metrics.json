@@ -1,0 +1,46 @@
+{
+  "dataset": "Elliptic (real Bitcoin transaction graph)",
+  "source": "Kaggle ellipticco/elliptic-data-set",
+  "architecture": "GraphSAGE (from-scratch NumPy, sparse adjacency)",
+  "protocol": "temporal split \u2014 train ts<=31, calibrate 32-34, test ts>34",
+  "n_nodes": 203769,
+  "n_edges": 234355,
+  "n_features": 165,
+  "n_illicit": 4545,
+  "n_licit": 42019,
+  "hidden": 32,
+  "epochs": 200,
+  "pos_weight": 8.02,
+  "calibration": {
+    "method": "Platt scaling (validation split)",
+    "params": [
+      0.6819398075703699,
+      -1.0633627758789839
+    ],
+    "test_ece_before": 0.0894,
+    "test_ece_after": 0.0553
+  },
+  "test": {
+    "precision": 0.4277,
+    "recall": 0.554,
+    "f1": 0.4827,
+    "roc_auc": 0.857,
+    "pr_auc": 0.3962,
+    "brier": 0.0625,
+    "ece": 0.0553,
+    "n_positive": 1083,
+    "n_total": 16670
+  },
+  "val": {
+    "precision": 0.8555,
+    "recall": 0.898,
+    "f1": 0.8762,
+    "roc_auc": 0.9834,
+    "pr_auc": 0.9424,
+    "brier": 0.035,
+    "ece": 0.0246,
+    "n_positive": 402,
+    "n_total": 2279
+  },
+  "registry_version": 10
+}

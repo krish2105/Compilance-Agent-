@@ -10,3 +10,4 @@ scikit-learn==1.4.2
 # Optional: mirror model runs to a real MLflow server (set MLFLOW_TRACKING_URI).
 # The built-in JSON registry (gnn/registry.py) needs none of this.
 mlflow==2.16.2
+scipy>=1.10  # sparse adjacency for real-graph (Elliptic/IBM) training only
