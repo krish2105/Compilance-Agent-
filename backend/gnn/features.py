@@ -123,8 +123,21 @@ def build_account_features(transactions: List[Dict[str, Any]]) -> Tuple[List[str
     return accounts, X, A, y
 
 
-def mean_adj(A: np.ndarray) -> np.ndarray:
-    """Row-normalised adjacency (mean of neighbours) for the GraphSAGE aggregator."""
+def mean_adj(A):
+    """Row-normalised adjacency (mean of neighbours) for the GraphSAGE aggregator.
+
+    Accepts a dense array (serving path) or a scipy sparse matrix (real-graph
+    training, e.g. Elliptic's 200k nodes) — the sparse branch imports scipy lazily
+    so the serving runtime never needs it.
+    """
+    try:
+        from scipy import sparse  # noqa: WPS433  (lazy: training-only dependency)
+        if sparse.issparse(A):
+            deg = np.asarray(A.sum(axis=1)).ravel()
+            deg[deg == 0] = 1.0
+            return (sparse.diags(1.0 / deg) @ A).tocsr()
+    except ImportError:
+        pass
     deg = A.sum(axis=1, keepdims=True)
     deg[deg == 0] = 1.0
     return A / deg

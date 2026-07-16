@@ -272,6 +272,18 @@ account-level transaction graph:
   **temporal features** (inter-transaction timing, burstiness, night ratio) and **selects the better**
   by validation PR-AUC — GraphSAGE wins.
 - **Results (held-out accounts):** F1 **0.86**, PR-AUC **0.94**, ROC-AUC **0.94**.
+- **Trained on REAL labeled graph data** ([`gnn/train_real.py`](backend/gnn/train_real.py)) — the same
+  from-scratch GraphSAGE, run on two public benchmarks with a sparse adjacency so the full graphs fit in
+  memory (no PyTorch, no scipy at serving time):
+  - **Elliptic** (real Bitcoin transaction graph, 203k nodes / 234k edges, *temporal* leakage-free split):
+    illicit-class **F1 0.48**, **ROC-AUC 0.86** — in line with published GCN/GraphSAGE results on this
+    deliberately hard split.
+  - **IBM AMLSim HI-Small** (515k account graph, 5.1M transactions): **ROC-AUC 0.87**, PR-AUC ~**8× the
+    base rate** at 1.2% prevalence — the GNN cleanly *ranks* laundering accounts (F1 is threshold-sensitive
+    under extreme imbalance, which is exactly why AML uses ranking + analyst review, not a hard classifier).
+  - Both **recalibrated** (Platt): Elliptic ECE **0.089 → 0.055**, IBM **0.23 → 0.038**. Metrics committed
+    to [`gnn/elliptic_metrics.json`](backend/gnn/elliptic_metrics.json) /
+    [`gnn/ibm_metrics.json`](backend/gnn/ibm_metrics.json).
 - **Calibrated** (Platt scaling) so scores are proper probabilities — reports **Brier** + **ECE**.
 - **MLOps:** a versioned **model registry** with a **model card** ([`gnn/registry.py`](backend/gnn/registry.py),
   MLflow-compatible), and a **PSI drift monitor** ([`gnn/drift.py`](backend/gnn/drift.py)) — both exposed
