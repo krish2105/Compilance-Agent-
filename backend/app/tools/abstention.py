@@ -25,7 +25,7 @@ from app.config import settings
 
 
 def assess(verification: Dict[str, Any], typology_match: Dict[str, Any],
-           risk: Dict[str, Any]) -> Dict[str, Any]:
+           risk: Dict[str, Any], regulatory: Dict[str, Any] | None = None) -> Dict[str, Any]:
     reasons = []
     conf = float(typology_match.get("confidence", 0.0) or 0.0)
     sanctions = bool(risk.get("sanctions_override"))
@@ -39,6 +39,11 @@ def assess(verification: Dict[str, Any], typology_match: Dict[str, Any],
         reasons.append(
             f"Typology confidence ({conf:.0%}) is below the reliability threshold "
             f"({settings.abstain_confidence:.0%}) — the pattern is ambiguous."
+        )
+    if regulatory and regulatory.get("retrieval_low_confidence") and not sanctions:
+        reasons.append(
+            "Regulatory grounding is weak — the retrieved guidance is only loosely "
+            "relevant, so the assessment lacks a solid regulatory basis."
         )
 
     abstained = bool(reasons)

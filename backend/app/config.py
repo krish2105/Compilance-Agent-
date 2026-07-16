@@ -103,6 +103,16 @@ class Settings(BaseSettings):
     abstain_confidence: float = Field(default=0.30, alias="ABSTAIN_CONFIDENCE")
     abstain_on_verifier_fail: bool = Field(default=True, alias="ABSTAIN_ON_VERIFIER_FAIL")
 
+    # ---- RAG neural reranker (HF sentence-similarity) + relevance floor ----
+    # RERANKER=neural scores query/passage relevance with a hosted sentence-transformer
+    # via HF's free API (needs HUGGINGFACE_TOKEN); falls back to the lexical reranker.
+    # If the top passage's relevance is below the floor, the regulatory grounding is
+    # weak and the case is flagged (feeds abstention). Default reranker stays lexical
+    # so the demo is fast/offline; neural is opt-in.
+    hf_rerank_model: str = Field(
+        default="sentence-transformers/all-MiniLM-L6-v2", alias="HF_RERANK_MODEL")
+    rag_relevance_floor: float = Field(default=0.12, alias="RAG_RELEVANCE_FLOOR")
+
     # ---- Entity enrichment (GLEIF LEI lookup — real, free, no key) ----
     # Best-effort legal-entity verification for organisation counterparties. Off by
     # default so the demo stays fast on synthetic names; a real deployment enables it.
