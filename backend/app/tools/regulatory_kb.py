@@ -103,4 +103,75 @@ def build_chunks() -> List[Chunk]:
     for cid, text in globals_:
         chunks.append(Chunk(cid, "global", text, {"label": "Global AML guidance",
                                                   "section": cid.split("::")[1]}))
+
+    chunks.extend(_real_regulation_chunks())
     return chunks
+
+
+# Real, named regulatory references. Each is an ORIGINAL plain-English summary of a
+# public standard/law (no copyrighted text reproduced), carrying a citation so the
+# Regulatory-Context agent can ground the narrative in an identifiable source.
+_REAL_REGS = [
+    ("fatf::rec10", "FATF Recommendation 10", "FATF Recommendations (2012, as amended)",
+     "Customer Due Diligence. Financial institutions must identify and verify the customer and "
+     "beneficial owner, understand the purpose of the relationship, and conduct ongoing monitoring. "
+     "CDD is prohibited from being anonymous; risk determines depth (simplified vs enhanced)."),
+    ("fatf::rec11", "FATF Recommendation 11", "FATF Recommendations",
+     "Record-keeping. Institutions must keep transaction records and CDD data for at least five "
+     "years and make them available swiftly to competent authorities."),
+    ("fatf::rec12", "FATF Recommendation 12", "FATF Recommendations",
+     "Politically Exposed Persons. For foreign PEPs, obtain senior-management approval, establish "
+     "source of wealth and funds, and conduct enhanced ongoing monitoring; apply reasonable "
+     "measures for domestic PEPs and heads of international organisations on a risk basis."),
+    ("fatf::rec13", "FATF Recommendation 13", "FATF Recommendations",
+     "Correspondent banking. Understand the respondent's business and AML controls, assess its "
+     "reputation and supervision, obtain approval before new relationships, and prohibit "
+     "relationships with shell banks."),
+    ("fatf::rec16", "FATF Recommendation 16 (Travel Rule)", "FATF Recommendations",
+     "Wire transfers must carry required and accurate originator and beneficiary information "
+     "throughout the payment chain (the 'travel rule'); intermediary and beneficiary institutions "
+     "must have risk-based policies for missing information."),
+    ("fatf::rec20", "FATF Recommendation 20", "FATF Recommendations",
+     "Suspicious transaction reporting. If an institution suspects funds are proceeds of crime or "
+     "linked to terrorist financing, it must promptly report to the national Financial Intelligence "
+     "Unit. Reporting is mandatory and protected; tipping-off the customer is prohibited."),
+    ("fincen::sar", "FinCEN SAR filing", "US 31 CFR 1020.320 / BSA",
+     "US institutions file a Suspicious Activity Report for transactions involving at least $5,000 "
+     "where money laundering, BSA evasion, or no apparent lawful purpose is suspected, generally "
+     "within 30 days of detection; the customer must not be notified."),
+    ("fincen::ctr", "FinCEN CTR / structuring", "US 31 CFR 1010.311 / 5324",
+     "Cash transactions exceeding $10,000 in a business day require a Currency Transaction Report; "
+     "deliberately splitting transactions to stay below the threshold ('structuring') is itself a "
+     "criminal offence under 31 USC 5324."),
+    ("eu::4amld", "EU 4th AML Directive (2015/849)", "Directive (EU) 2015/849",
+     "Introduced central beneficial-ownership registers, a risk-based approach across the EU, and "
+     "enhanced due diligence for high-risk third countries and PEPs."),
+    ("eu::5amld", "EU 5th AML Directive (2018/843)", "Directive (EU) 2018/843",
+     "Extended AML obligations to virtual-asset service providers and custodian wallet providers, "
+     "widened public access to beneficial-ownership data, and tightened rules on prepaid cards and "
+     "high-value goods."),
+    ("eu::6amld", "EU 6th AML Directive (2018/1673)", "Directive (EU) 2018/1673",
+     "Harmonised 22 predicate offences for money laundering across member states, extended criminal "
+     "liability to legal persons, and set minimum maximum sentences — strengthening enforcement."),
+    ("wolfsberg::cb", "Wolfsberg Correspondent Banking Principles", "Wolfsberg Group",
+     "Industry standard for managing correspondent-banking money-laundering risk: risk-based due "
+     "diligence on respondents, nested-relationship transparency, and periodic review proportionate "
+     "to risk."),
+    ("basel::cdd", "Basel Committee CDD for Banks", "BCBS Sound management of ML/FT risks",
+     "Supervisory guidance requiring effective customer acceptance policies, customer and beneficial-"
+     "owner identification, ongoing monitoring, and group-wide risk management of ML/FT risk."),
+    ("uae::law", "UAE Federal Decree-Law No. 20 of 2018", "UAE AML/CFT law + Cabinet Decision 10/2019",
+     "The UAE AML/CFT framework criminalises money laundering and terrorist financing, requires CDD "
+     "and STR filing by reporting entities, and establishes the Financial Intelligence Unit; STRs are "
+     "filed to the UAE FIU via the goAML platform under Central Bank of the UAE supervision."),
+]
+
+
+def _real_regulation_chunks() -> List[Chunk]:
+    out: List[Chunk] = []
+    for cid, label, source, text in _REAL_REGS:
+        out.append(Chunk(
+            cid, "regulation", f"{label}. {text}",
+            {"label": label, "section": "regulation", "source": source,
+             "citation": f"{label} — {source}"}))
+    return out

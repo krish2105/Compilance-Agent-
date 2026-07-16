@@ -171,6 +171,27 @@ def reload_watchlist() -> None:
     _live_meta["loaded"] = False
 
 
+def _name_similarity(q_norm: str, cand_norm: str) -> float:
+    """High-precision full-name similarity via bidirectional token coverage.
+
+    Every query token must find a strong match in the candidate AND vice-versa; the
+    harmonic mean punishes one-sided overlap. This stops a single shared forename
+    (e.g. "John Doe" vs "Howard Jon Baker") from clearing the threshold on a large
+    real watchlist, while an exact name still scores ~1.0.
+    """
+    qt, ct = q_norm.split(), cand_norm.split()
+    if not qt or not ct:
+        return 0.0
+
+    def cover(a: List[str], b: List[str]) -> float:
+        return sum(max((jaro_winkler(x, y) for y in b), default=0.0) for x in a) / len(a)
+
+    cq, cc = cover(qt, ct), cover(ct, qt)
+    if cq + cc == 0:
+        return 0.0
+    return (2 * cq * cc) / (cq + cc)
+
+
 def match_name(query: str, threshold: float = _DEFAULT_THRESHOLD) -> List[Dict[str, Any]]:
     """Fuzzy-match a name against the watchlist; return hits above threshold.
 
@@ -196,7 +217,7 @@ def match_name(query: str, threshold: float = _DEFAULT_THRESHOLD) -> List[Dict[s
             # Cheap length pre-filter — very different lengths can't clear the threshold.
             if abs(len(cn) - qlen) > max(qlen, len(cn)) * 0.5:
                 continue
-            score = max(jaro_winkler(q, cn), _token_sort_ratio(q, cn))
+            score = _name_similarity(q, cn)
             best = max(best, score)
         if best >= threshold:
             hits.append({

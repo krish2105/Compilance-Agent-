@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from app.tools import sanctions
+from app.tools import entity_enrichment, sanctions
 
 
 def screen_case(evidence: Dict[str, Any]) -> Dict[str, Any]:
@@ -54,6 +54,18 @@ def screen_case(evidence: Dict[str, Any]) -> Dict[str, Any]:
             jurisdiction_hits.append(res)
     sanctioned_juris = [j for j in jurisdiction_hits if j["status"] == "sanctioned"]
 
+    # --- Legal-entity enrichment (GLEIF LEI) — best-effort, off by default ---
+    entity_enrichment_hits: List[Dict[str, Any]] = []
+    if entity_enrichment.is_enabled():
+        to_enrich = [(subject_kyc.get("full_name"), subject_kyc.get("account_number"), True)]
+        to_enrich += [(k.get("full_name"), acc, False)
+                      for acc, k in list(counterparty_kyc.items())[:5]]
+        for nm, acc, is_subj in to_enrich:
+            rec = entity_enrichment.lookup_lei(nm or "")
+            if rec:
+                entity_enrichment_hits.append(
+                    {**rec, "screened_account": acc, "is_subject": is_subj})
+
     # --- Screening risk contribution ---
     if name_hits or sanctioned_juris:
         risk = 1.0
@@ -81,6 +93,7 @@ def screen_case(evidence: Dict[str, Any]) -> Dict[str, Any]:
         "pep_flagged": pep_flagged,
         "jurisdiction_hits": jurisdiction_hits,
         "sanctioned_jurisdictions": sanctioned_juris,
+        "entity_enrichment": entity_enrichment_hits,
         "total_hits": total_hits,
         "watchlist": sanctions.watchlist_stats(),
         "summary": summary,
