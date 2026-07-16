@@ -212,24 +212,38 @@ def _has_cycle(edges: set) -> bool:
     return any(color[n] == WHITE and dfs(n) for n in nodes)
 
 
-def _longest_path(edges: set) -> int:
-    """Length (in nodes) of the longest simple path; bounded search for safety."""
+def _longest_path(edges: set, max_depth: int = 12, budget: int = 20000) -> int:
+    """Length (in nodes) of the longest simple path — an estimate.
+
+    Depth alone is NOT enough to bound cost: on a dense real transaction graph the
+    number of simple paths grows as branching^depth (billions), which would hang the
+    pipeline. So we also cap the TOTAL number of DFS steps (`budget`) and return the
+    best path found so far — a safe, bounded estimate of layering depth that runs in
+    milliseconds on any graph, cyclic or dense.
+    """
     graph: Dict[str, List[str]] = defaultdict(list)
     nodes = set()
     for s, r in edges:
         graph[s].append(r)
         nodes.update([s, r])
     best = 1
+    steps = 0
 
-    def dfs(u: str, seen: set) -> int:
-        nonlocal best
+    def dfs(u: str, seen: frozenset) -> int:
+        nonlocal best, steps
+        steps += 1
         local_best = len(seen)
-        for v in graph[u]:
-            if v not in seen and len(seen) < 12:  # bound depth to avoid pathological cost
-                local_best = max(local_best, dfs(v, seen | {v}))
+        if len(seen) < max_depth:
+            for v in graph[u]:
+                if steps > budget:
+                    break
+                if v not in seen:  # simple path — also makes cycles safe
+                    local_best = max(local_best, dfs(v, seen | {v}))
         best = max(best, local_best)
         return local_best
 
     for n in nodes:
-        dfs(n, {n})
+        if steps > budget:
+            break
+        dfs(n, frozenset([n]))
     return best

@@ -13,9 +13,15 @@ matcher's input, and these graph metrics corroborate them.
 """
 from __future__ import annotations
 
+import itertools
 from typing import Any, Dict, List
 
 import networkx as nx
+
+# A dense/cyclic real transaction graph can contain a factorial number of simple
+# cycles; enumerating them all would hang the pipeline. We only need "how cyclic is
+# this" — so we cap enumeration (simple_cycles is a generator, islice stops it early).
+_CYCLE_CAP = 2000
 
 
 def build_graph(transactions: List[Dict[str, Any]]) -> nx.MultiDiGraph:
@@ -39,9 +45,10 @@ def graph_features(g: nx.MultiDiGraph) -> Dict[str, Any]:
     in_deg = dict(g.in_degree())
     out_deg = dict(g.out_degree())
     try:
-        cycles = list(nx.simple_cycles(simple))
+        cycles = list(itertools.islice(nx.simple_cycles(simple), _CYCLE_CAP))
     except Exception:  # noqa: BLE001
         cycles = []
+    cycles_capped = len(cycles) >= _CYCLE_CAP
     # Betweenness centrality (which account is the most central pass-through hub).
     bc = nx.betweenness_centrality(simple) if simple.number_of_nodes() > 2 else {}
     top_hub = max(bc, key=bc.get) if bc else None
@@ -58,6 +65,7 @@ def graph_features(g: nx.MultiDiGraph) -> Dict[str, Any]:
         "max_in_degree": max(in_deg.values()) if in_deg else 0,
         "max_out_degree": max(out_deg.values()) if out_deg else 0,
         "num_simple_cycles": len(cycles),
+        "num_simple_cycles_capped": cycles_capped,
         "has_cycle": len(cycles) > 0,
         "weakly_connected_components": nx.number_weakly_connected_components(simple),
         "num_communities": len(communities),
