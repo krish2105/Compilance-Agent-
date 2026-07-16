@@ -115,6 +115,13 @@ class Settings(BaseSettings):
         default="sentence-transformers/all-MiniLM-L6-v2", alias="HF_RERANK_MODEL")
     rag_relevance_floor: float = Field(default=0.12, alias="RAG_RELEVANCE_FLOOR")
 
+    # ---- GNN decision operating point (model-risk control) ----
+    # The account-flagging threshold on the calibrated GNN probability. A deployment
+    # sets this from an operating-point analysis on its own data (see
+    # `eval/operating_point.py`) to hit a target recall vs alert-volume policy — not a
+    # naive 0.5. Surfaced as `flagged_accounts` + `flag_threshold` in the GNN result.
+    gnn_flag_threshold: float = Field(default=0.5, alias="GNN_FLAG_THRESHOLD")
+
     # ---- Entity enrichment (GLEIF LEI lookup — real, free, no key) ----
     # Best-effort legal-entity verification for organisation counterparties. Off by
     # default so the demo stays fast on synthetic names; a real deployment enables it.

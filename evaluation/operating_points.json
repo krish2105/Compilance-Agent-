@@ -1,0 +1,43 @@
+{
+  "base_rate": 0.0123,
+  "targets": [
+    {
+      "target_recall": 0.7,
+      "threshold": 0.1011,
+      "precision": 0.0532,
+      "recall": 0.7002,
+      "flag_rate": 0.1626
+    },
+    {
+      "target_recall": 0.8,
+      "threshold": 0.0812,
+      "precision": 0.0456,
+      "recall": 0.8008,
+      "flag_rate": 0.2168
+    },
+    {
+      "target_recall": 0.9,
+      "threshold": 0.0566,
+      "precision": 0.0354,
+      "recall": 0.9004,
+      "flag_rate": 0.3142
+    },
+    {
+      "target_recall": 0.95,
+      "threshold": 0.0327,
+      "precision": 0.0258,
+      "recall": 0.9507,
+      "flag_rate": 0.4549
+    }
+  ],
+  "f1_optimal": {
+    "threshold": 0.2085,
+    "precision": 0.1138,
+    "recall": 0.3071,
+    "f1": 0.1661,
+    "flag_rate": 0.0333
+  },
+  "dataset": "IBM AMLSim HI-Small (real, test split)",
+  "n_test": 77264,
+  "recommended_default_threshold": 0.0566
+}

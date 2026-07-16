@@ -96,6 +96,13 @@ def score_case(transactions: List[Dict[str, Any]], subject: str) -> Dict[str, An
     top = sorted(node_scores.items(), key=lambda kv: kv[1], reverse=True)[:5]
     top_accounts = [{"account": a, "score": s} for a, s in top]
 
+    # Explicit decision at the configured operating point (a documented model-risk
+    # control tuned via eval/operating_point.py — not a hardcoded 0.5).
+    from app.config import settings
+    thr = settings.gnn_flag_threshold
+    flagged = [{"account": a, "score": s} for a, s in
+               sorted(node_scores.items(), key=lambda kv: kv[1], reverse=True) if s >= thr]
+
     return {
         "available": True,
         "node_scores": node_scores,
@@ -103,6 +110,8 @@ def score_case(transactions: List[Dict[str, Any]], subject: str) -> Dict[str, An
         "case_risk": case_risk,
         "mean_risk": mean_risk,
         "top_risk_accounts": top_accounts,
+        "flag_threshold": thr,
+        "flagged_accounts": flagged,
         "model": {
             "architecture": _metrics.get("architecture", "2-layer GNN (NumPy)"),
             "layer_type": _metrics.get("layer_type"),

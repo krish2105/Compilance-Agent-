@@ -112,11 +112,17 @@ trigger model-risk review.
 
 ## 12. Path to production (validation checklist)
 
-- [ ] Re-train and re-validate the serving GNN on the institution's **own** labeled data (SR 11-7 §V: developmental evidence + outcomes analysis).
-- [ ] Threshold tuning on real alert volumes with a precision/recall operating-point policy.
-- [ ] Independent model validation + ongoing performance monitoring & annual review.
-- [ ] Durable infrastructure (managed Postgres/Redis), a hosted LLM + NLI endpoint (remove free-tier limits), and integration with core banking / the FIU filing channel.
-- [ ] Full fairness assessment on attributed data; documented governance sign-off.
+Done in this repo (free-tier):
+- [x] **Operating-point / threshold policy** — precision-recall analysis on the real IBM benchmark, a tunable `GNN_FLAG_THRESHOLD`, and a documented recall-vs-alert-volume policy (`eval/operating_point.py`, §2 of [Model Governance](MODEL_GOVERNANCE.md)).
+- [x] **Model validation report** (this document) + **governance, monitoring plan & risk register** ([MODEL_GOVERNANCE.md](MODEL_GOVERNANCE.md)) with a sign-off block.
+- [x] **Ongoing monitoring** metrics defined with action thresholds, exposed at `GET /api/model` and regenerable via the eval suite.
+- [x] **Reproducible developmental evidence** — every metric regenerates from a documented command.
+
+Requires the institution's data / infra (a deployment engagement, not portfolio work):
+- [ ] Re-train and re-validate the serving GNN on the institution's **own** labeled data (SR 11-7 §V).
+- [ ] Re-derive the operating point on real alert volumes; **independent** validation + annual review.
+- [ ] Durable infrastructure (managed Postgres/Redis via `DATABASE_URL`/`REDIS_URL` — already supported), a hosted LLM + NLI endpoint, and core-banking / FIU-filing integration.
+- [ ] Full fairness assessment on **attributed** data.
 
 ---
 
