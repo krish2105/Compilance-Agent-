@@ -74,18 +74,16 @@ def entail(premise: str, hypotheses: List[str]) -> Optional[Dict[str, float]]:
         "X-Wait-For-Model": "true",
     }
 
-    body = None
-    # Two attempts: cold-start / transient rate-limit can fail the first call.
-    for attempt in range(2):
-        req = urllib.request.Request(url, data=payload, method="POST", headers=headers)
-        try:
-            with urllib.request.urlopen(req, timeout=settings.entailment_timeout) as resp:
-                body = json.loads(resp.read().decode("utf-8"))
-            break
-        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError,
-                ValueError) as exc:  # network, timeout, DNS, JSON, HTTP error
-            logger.warning("Entailment check attempt %d unavailable: %s", attempt + 1, exc)
-    if body is None:
+    # Single best-effort attempt with a tight budget — the guardrail must never
+    # block an investigation. On failure (cold start / rate limit / network) the
+    # deterministic guardrails still stand and later runs pick up the warm model.
+    req = urllib.request.Request(url, data=payload, method="POST", headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=settings.entailment_timeout) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError,
+            ValueError) as exc:  # network, timeout, DNS, JSON, HTTP error
+        logger.warning("Entailment check unavailable: %s", exc)
         return None
 
     # Response: {"sequence":..., "labels":[...], "scores":[...]} (reordered by score).

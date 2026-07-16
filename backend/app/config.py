@@ -89,9 +89,11 @@ class Settings(BaseSettings):
         default="MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli", alias="HF_NLI_MODEL")
     # Entailment probability below this = "not supported by evidence".
     entailment_threshold: float = Field(default=0.5, alias="ENTAILMENT_THRESHOLD")
-    # HF serverless cold-starts can take 20-30s on first use; we send X-Wait-For-Model
-    # so the API blocks until the model is loaded rather than erroring.
-    entailment_timeout: float = Field(default=45.0, alias="ENTAILMENT_TIMEOUT")
+    # Tight budget so the guardrail can NEVER hang an investigation on the hot path.
+    # If HF is cold-starting (>timeout) the check degrades to a no-op and the model
+    # keeps loading server-side, so later runs pick it up. The eval harness overrides
+    # this to a longer value (ENTAILMENT_TIMEOUT=60) where blocking is fine.
+    entailment_timeout: float = Field(default=12.0, alias="ENTAILMENT_TIMEOUT")
     # Cap HF calls per case (free-tier rate limits): number of statements checked.
     entailment_max_checks: int = Field(default=8, alias="ENTAILMENT_MAX_CHECKS")
 
