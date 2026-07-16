@@ -438,7 +438,8 @@ def assemble_result(case_id: str, state: AgentState) -> Dict[str, Any]:
     # Abstention: if the system cannot confidently assess the case, say so and
     # recommend escalation rather than presenting the narrative as a reliable AI
     # assessment. The evidence draft is preserved (with a prominent notice).
-    abst = abstention.assess(state["verification"], state["typology_match"], risk)
+    abst = abstention.assess(state["verification"], state["typology_match"], risk,
+                             state.get("regulatory"))
     narrative_text = state["narrative_result"]["narrative"]
     if abst["abstained"]:
         narrative_text = abstention.banner(abst["reasons"]) + narrative_text

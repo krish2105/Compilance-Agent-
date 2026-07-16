@@ -56,9 +56,16 @@ def get_regulatory_context(typology_match: Dict[str, Any]) -> Dict[str, Any]:
             "it does not file it."
         ),
     }
+    # Relevance floor: if even the top passage is weakly relevant, the regulatory
+    # grounding is thin — surface it so the abstention gate can escalate.
+    top_relevance = float(retrieved[0].get("relevance", 0.0)) if retrieved else 0.0
+    retrieval_low_confidence = bool(retrieved and retrieved[0].get("below_floor"))
+
     return {
         "primary": primary,
         "retrieved": retrieved,
+        "retrieval_confidence": round(top_relevance, 4),
+        "retrieval_low_confidence": retrieval_low_confidence,
         "rag_backend": retriever.describe()["backend"],
         "rag_meta": retriever.describe(),
     }
