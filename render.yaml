@@ -18,13 +18,18 @@ services:
     # numInstances: 3        # uncomment on a paid instance type to scale out
     # For multi-region, run this blueprint per region + a Postgres read-replica.
     envVars:
-      # Primary provider is Gemini; it AUTOMATICALLY falls back to the deterministic
-      # offline provider until GEMINI_API_KEY is set in the Render dashboard — so the
-      # service is live at $0 immediately, and turns "generative" the moment you add
-      # a free Google AI Studio key (https://aistudio.google.com/apikey). No redeploy needed.
+      # Primary provider is Groq (Llama 3.3 70B, free tier); it AUTOMATICALLY falls
+      # back to the deterministic offline provider until GROQ_API_KEY is set in the
+      # Render dashboard — so the service is live at $0 immediately and turns
+      # "generative" the moment you add a free Groq key (https://console.groq.com/keys).
       - key: LLM_PROVIDER
-        value: gemini
+        value: groq
       - key: LLM_ENABLE_FALLBACK
+        value: "true"
+      # Hallucination guardrail: NLI faithfulness check via HuggingFace's free
+      # Inference API. No-ops until HUGGINGFACE_TOKEN is set (deterministic guardrails
+      # still stand); costs no server RAM (model runs on HF, not the 512MB instance).
+      - key: VERIFIER_ENTAILMENT
         value: "true"
       - key: VECTOR_BACKEND
         value: memory     # zero-dependency RAG store; fits the free-tier 512MB
@@ -43,10 +48,12 @@ services:
         sync: false       # e.g. postgresql://user:pass@ep-xxx.neon.tech/db  (Neon free)
       - key: REDIS_URL
         sync: false       # e.g. rediss://default:pass@xxx.upstash.io:6379   (Upstash free)
-      - key: GEMINI_API_KEY
-        sync: false       # set in the Render dashboard to activate live LLM narratives
       - key: GROQ_API_KEY
-        sync: false       # optional failover provider
+        sync: false       # set in the Render dashboard to activate live Groq narratives
+      - key: HUGGINGFACE_TOKEN
+        sync: false       # set in the Render dashboard to activate the NLI faithfulness guardrail
+      - key: GEMINI_API_KEY
+        sync: false       # optional secondary provider
       # --- Observability (optional): set these to stream traces to Langfuse ---
       - key: LANGFUSE_PUBLIC_KEY
         sync: false
