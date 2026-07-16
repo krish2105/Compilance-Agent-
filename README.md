@@ -17,7 +17,7 @@ approval gate** — it never auto-clears or auto-reports.
 
 ![ComplianceAgent — case investigation with human approval gate and per-claim verification](docs/hero-light.png)
 
-📐 [Architecture](docs/ARCHITECTURE.md) · 🧭 [ADRs](docs/adr/) · 📝 [Case study](docs/CASE_STUDY.md) · 🔌 [Postman collection](docs/ComplianceAgent.postman_collection.json) · 🗂️ [Model card](docs/MODEL_CARD.md) · [Data sheet](docs/DATA_SHEET.md)
+📐 [Architecture](docs/ARCHITECTURE.md) · 🧭 [ADRs](docs/adr/) · 📝 [Case study](docs/CASE_STUDY.md) · 🔌 [Postman collection](docs/ComplianceAgent.postman_collection.json) · 🗂️ [Model card](docs/MODEL_CARD.md) · 🧪 [Model validation](docs/MODEL_VALIDATION.md) · [Data sheet](docs/DATA_SHEET.md)
 
 ### 🔗 Live demo
 - **App (Vercel):** https://complianceagent-live.vercel.app
